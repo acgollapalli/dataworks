@@ -2,14 +2,14 @@
   (:require
    [dataworks.db.app-db :refer [app-db]]
    [dataworks.db.user-db :refer [user-db]]
+   [dataworks.collectors :refer [collector-ns]]
    [monger.collection :as mc]
    [monger.operators :refer :all]
    [monger.conversion :refer [to-object-id]]
+   [monger.json]
    [yada.yada :refer [as-resource] :as yada]
-   [clojure.pprint :as p]
+   [clojure.pprint :refer [pprint] :as p]
    [bidi.bidi :as bidi]))
-
-(def this-ns *ns*)
 
 (defn get-collectors []
   (mc/find-maps app-db "collectors"))
@@ -30,12 +30,10 @@
 
 (def resource-map
   (atom
-   {:hello (as-resource "Hello World!\n")
-    :goodbye (as-resource "Goodbye Cruel World!\n")}))
+   {}))
 
 (def atomic-routes
-  (atom {"hello/world" :hello
-         "goodbye/world" :goodbye}))
+  (atom {}))
 
 ;; TODO ADD RESOURCE SECURITY VALIDATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1111111111
 ;; TODO Create a custom namespace for safe evaluation with unsafe functions removed.
@@ -43,42 +41,51 @@
 ;;      namespace.
 (defn evalidate [resource-map]
   "validates, sanitizes, and evaluates the resource map from db CURRENTLY UNSAFE (but necessary)"
-  (binding [*ns* this-ns]
+  (binding [*ns* collector-ns]
     (if (string? resource-map)
-      (yada/resource (eval (read-string resource-map)))
+      (yada/resource (eval (read-string resource-map))) ;; TODO add case for eval fail
       (yada/resource (eval resource-map)))))
 
 ;; TODO ADD PATH VALIDATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111
 ;; TODO FIGURE OUT HUMAN READABLE ID'S IN MAPS WITHOUT DUPLICATES!!
 (defn update-collectors! [{:keys [path resource _id :as coll]}]
-  (do (print "Updating Collectors!")
       (let [res (evalidate resource)
             id (keyword (str _id))]
         (dosync
          (swap! resource-map (fn [old-map]
                                (assoc old-map id res)))
          (swap! atomic-routes (fn [old-map]
-                                (assoc old-map path id)))))))
+                                (assoc old-map path id))))))
 
-(defn create-collectors! []
-  (map update-collectors! (get-collectors)))
+(defn start-collectors! []
+  (do (println "Starting Collectors")
+      (let [colls (get-collectors)
+            started-colls (map update-collectors! colls)]
+        (if (= (count colls)
+               (count (last started-colls)))
+          (println "Started Collectors!")
+          (println "Failed to Start Collectors.")))))
 
 (defn create-collector! [collector]
   (if-let [coll (mc/insert-and-return app-db "collectors" collector)]
     (do
-      (p/pprint collector)
-      (p/pprint coll)
-      (update-collectors! coll))))
+      ;;(p/pprint collector)
+      ;;(p/pprint coll)
+      (update-collectors! coll)
+      coll)))
 
 ;; TODO VERIFY THAT COLLECTOR UPDATED IN DB BEFORE CALLING update-collectors!
 (defn update-collector! [id params]
-  (let [update  (mc/update app-db "collectors" {:_id (to-object-id id)}
-              {$set (reduce (fn [new-map [key val]]
-                              (assoc new-map key val))
-                            params)})
+  (let [update (mc/update-by-id app-db "collectors" (to-object-id id)
+                                {$set (reduce (fn [m [k v]]
+                                                (assoc m k v))
+                                              {}
+                                              params)})
+
         coll (get-collector id)]
-    (p/pprint coll)
-    (update-collectors! coll)))
+    ;;(p/pprint coll)
+    (update-collectors! coll)
+    coll))
 
 (def user-sub
    (fn [ctx]
@@ -101,16 +108,16 @@
     ;;:access-control {:realm "developer"
     ;;                 :scheme ????
     ;;                 :verify ????}
-    :methods {:get {:response (fn [ctx] (get-collectors))}
+    :methods {:get {:response (fn [ctx] (get-collectors))
+                    :produces "application/json"}
               :post
               {:consumes #{"application/json"}
+               :produces "application/json"
                :response
                (fn [ctx]
-                 (let [id (get-in ctx [:request :route-params :idj])
-                       body (ctx :body)]
-                   (p/pprint (type (:body ctx)))
-                   (create-collector! body)
-                   ))}}}))
+                 (let [body (ctx :body)]
+                   ;;(p/pprint (type (:body ctx)))
+                   (create-collector! body)))}}}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
 (def collector
@@ -122,18 +129,16 @@
     ;;                 :scheme ????
     ;;                 :verify ????}
     :methods {:get
-              {:response
+               {:produces "application/json"
+               :response
                (fn [ctx]
-                 (let [id (get-in ctx [:request :route-params :idj])]
+                 (let [id (get-in ctx [:request :route-params :id])]
                    (get-collector id)))}
               :post
               {:consumes #{"application/json"}
+               :produces "application/json"
                :response
                (fn [ctx]
-                 (let [id (get-in ctx [:request :route-params :idj])
+                 (let [id (get-in ctx [:request :route-params :id])
                        body (ctx :body)]
-                   ;;(p/pprint (type (:body ctx)))
-                   ;;(create-collector! )
-                   (update-collector! id body)
-                   ))}
-              }}))
+                   (update-collector! id (remove :_id body))))}}}))
