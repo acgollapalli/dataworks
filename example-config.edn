@@ -1,0 +1,4 @@
+{
+ :app-db-uri "mongodb://127.0.0.1:27017/Dataworks_AppData"
+ :user-db-uri "mongodb://127.0.0.1:27017/Dataworks_UserData"
+ }
