@@ -13,7 +13,12 @@
       :app-db-uri))
 
 
-(defstate user-db
-  ;; TODO ADD CREDENTIALS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111111111111111
+(defstate db*
   :start
-  (:db (mg/connect-via-uri (db-uri))))
+  (mg/connect-via-uri (db-uri))
+  :stop
+  (-> db* :conn mg/disconnect))
+
+(defstate user-db
+  :start
+   (:db db*))

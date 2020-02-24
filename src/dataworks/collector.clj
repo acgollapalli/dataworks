@@ -3,6 +3,7 @@
    [dataworks.db.app-db :refer [app-db]]
    [dataworks.db.user-db :refer [user-db]]
    [dataworks.collectors :refer [collector-ns]]
+   [dataworks.authentication :as auth]
    [monger.collection :as mc]
    [monger.operators :refer :all]
    [monger.conversion :refer [to-object-id]]
@@ -94,21 +95,23 @@
         (if-let [path (bidi/match-route ["/" @atomic-routes] path-info)]
                      (@resource-map (:handler path))))))
 
-(def user
+(defn user []
   (yada/resource
    {:id :user
     :path-info? true
     :sub-resource user-sub}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(def collectors
+(defn collectors []
   (yada/resource
    {:id :collectors
     :description "this is the resource that returns all collector documents"
-    ;;:access-control {:realm "developer"
-    ;;                 :scheme ????
-    ;;                 :verify ????}
-    :methods {:get {:response (fn [ctx] (get-collectors))
+    ;;:access-control auth/developer
+    :authentication auth/dev-authentication
+    :authorization auth/dev-authorization
+    :methods {:get {:response (fn [ctx]
+                                ;;(pprint ctx)
+                                (get-collectors))
                     :produces "application/json"}
               :post
               {:consumes #{"application/json"}
@@ -116,18 +119,18 @@
                :response
                (fn [ctx]
                  (let [body (ctx :body)]
-                   ;;(p/pprint (type (:body ctx)))
+                   ;;(p/pprint ctx)
                    (create-collector! body)))}}}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(def collector
+(defn collector []
   (yada/resource
    {:id :collector
     :description "resource for individual collector"
     :parameters {:path {:id String}} ;; do I need plurumatic's schema thing?
-    ;;:access-control {:realm "developer"
-    ;;                 :scheme ????
-    ;;                 :verify ????}
+    ;;:access-control auth/developer
+    :authentication auth/dev-authentication
+    :authorization auth/dev-authorization
     :methods {:get
                {:produces "application/json"
                :response

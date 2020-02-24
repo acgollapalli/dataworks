@@ -12,7 +12,12 @@
       edn/read-string
       :app-db-uri))
 
-(defstate app-db
-  ;; TODO ADD CREDENTIALS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111111111111111
+(defstate db*
   :start
-   (:db (mg/connect-via-uri (db-uri))))
+  (mg/connect-via-uri (db-uri))
+  :stop
+  (-> db* :conn mg/disconnect))
+
+(defstate app-db
+  :start
+   (:db db*))

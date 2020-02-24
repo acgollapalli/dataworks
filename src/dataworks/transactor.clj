@@ -6,6 +6,7 @@
    [clojure.pprint :refer [pprint] :as p]
    [dataworks.db.app-db :refer [app-db]]
    [dataworks.db.user-db :refer [user-db]]
+   [dataworks.authentication :as auth]
    [dataworks.transactors :refer [transactor-ns]]
    [monger.collection :as mc]
    [monger.operators :refer :all]
@@ -129,13 +130,13 @@
         (println "Transactors Failed to Start.")))))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(def transactors
+(defn transactors []
   (yada/resource
    {:id :transactors
     :description "this is the resource that returns all transactor documents"
-    ;;:access-control {:realm "developer"
-    ;;                 :scheme ????
-    ;;                 :verify ????}
+    :authentication auth/dev-authentication
+    :authorization auth/dev-authorization
+    ;;:access-control auth/developer
     :methods {:get {:response (fn [ctx] (get-transactors))}
               :post
               {:consumes #{"application/json"}
@@ -145,14 +146,14 @@
                    (create-transactor! body)))}}}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(def transactor
+(defn transactor []
   (yada/resource
    {:id :transactor
     :description "resource for individual transactor"
     :parameters {:path {:id String}} ;; do I need plurumatic's schema thing?
-    ;;:access-control {:realm "developer"
-    ;;                 :scheme ????
-    ;;                 :verify ????}
+    :authentication auth/dev-authentication
+    :authorization auth/dev-authorization
+    ;;:access-control auth/developer
     :methods {:get
               {:produces "application/json"
                :response
