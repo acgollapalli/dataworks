@@ -1,7 +1,6 @@
 (ns dataworks.core
   (:require
    [bidi.bidi :as bidi]
-   [clojure.core.async :refer [go-loop]]
    [clojure.edn :as edn]
    [dataworks.authentication :as auth]
    [dataworks.collector :as c]
@@ -10,16 +9,16 @@
    [yada.yada :refer [listener resource as-resource]])
   (:gen-class))
 
-(defn routes []
+(def routes
     ["/"
      [["app/"
-       {"collector" (c/collectors)
-        ["collector/" :id] (c/collector)
-        "transactor" (t/transactors)
-        ["transactor/" :id] (t/transactor)
-        "register" (auth/register)
-        "login" (auth/login)}]
-      ["user" (c/user)]
+       {"collector" c/collectors
+        ["collector/" :id] c/collector
+        "transactor" t/transactors
+        ["transactor/" :id] t/transactor
+        "register" auth/register
+        "login" auth/login}]
+      ["user" c/user]
       [true (as-resource nil)]]])
 
 (def port
@@ -30,7 +29,7 @@
 
 (defstate svr
   :start
-  (listener (routes) {:port port})
+  (listener routes {:port port})
   :stop
   (:close svr))
 
@@ -39,6 +38,4 @@
   [& args]
   (do
     (mount/start)
-    (t/start-transactors!)
-    (c/start-collectors!)
-    (println "Herro Warrudo!!")))
+    (println "Dio says: Herro Warrudo!!")))

@@ -8,26 +8,10 @@
    [monger.operators :refer :all]
    [monger.conversion :refer [to-object-id]]
    [monger.json]
+   [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [as-resource] :as yada]
    [clojure.pprint :refer [pprint] :as p]
    [bidi.bidi :as bidi]))
-
-(defn get-collectors []
-  (mc/find-maps app-db "collectors"))
-
-(defn get-collector [id]
-  (mc/find-one-as-map app-db "collectors" {:_id (to-object-id id)}))
-
-;; this function also needs to eval the :handler functions
-;; and ensure that the functions included in the handler are
-;; in this namespace
-(defn collector-assoc [coll collector]
-  (assoc-in coll
-            [(collector :_id)]
-            (dissoc (assoc collector
-                           :handler
-                           (read-string (collector :handler)))
-                    :_id)))
 
 (def resource-map
   (atom
@@ -37,15 +21,18 @@
   (atom {}))
 
 ;; TODO ADD RESOURCE SECURITY VALIDATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1111111111
-;; TODO Create a custom namespace for safe evaluation with unsafe functions removed.
-;;      Right now we evaluate in 'dataworks.collector. We should evaluate in a dedicated
-;;      namespace.
 (defn evalidate [resource-map]
   "validates, sanitizes, and evaluates the resource map from db CURRENTLY UNSAFE (but necessary)"
   (binding [*ns* collector-ns]
     (if (string? resource-map)
       (yada/resource (eval (read-string resource-map))) ;; TODO add case for eval fail
       (yada/resource (eval resource-map)))))
+
+(defn get-collectors []
+  (mc/find-maps app-db "collectors"))
+
+(defn get-collector [id]
+  (mc/find-one-as-map app-db "collectors" {:_id (to-object-id id)}))
 
 ;; TODO ADD PATH VALIDATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111
 ;; TODO FIGURE OUT HUMAN READABLE ID'S IN MAPS WITHOUT DUPLICATES!!
@@ -67,11 +54,16 @@
           (println "Started Collectors!")
           (println "Failed to Start Collectors.")))))
 
+(defstate collector-state
+  :start
+  (start-collectors!)
+  :stop
+  (dosync (reset! atomic-routes {})
+          (reset! resource-map {})))
+
 (defn create-collector! [collector]
   (if-let [coll (mc/insert-and-return app-db "collectors" collector)]
     (do
-      ;;(p/pprint collector)
-      ;;(p/pprint coll)
       (update-collectors! coll)
       coll)))
 
@@ -84,7 +76,6 @@
                                               params)})
 
         coll (get-collector id)]
-    ;;(p/pprint coll)
     (update-collectors! coll)
     coll))
 
@@ -95,14 +86,14 @@
         (if-let [path (bidi/match-route ["/" @atomic-routes] path-info)]
                      (@resource-map (:handler path))))))
 
-(defn user []
+(def user
   (yada/resource
    {:id :user
     :path-info? true
     :sub-resource user-sub}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(defn collectors []
+(def collectors
   (yada/resource
    {:id :collectors
     :description "this is the resource that returns all collector documents"
@@ -123,7 +114,7 @@
                    (create-collector! body)))}}}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(defn collector []
+(def collector
   (yada/resource
    {:id :collector
     :description "resource for individual collector"

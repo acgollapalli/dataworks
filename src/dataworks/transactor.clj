@@ -13,6 +13,7 @@
    [monger.conversion :refer [to-object-id]]
    [monger.result :as result]
    [monger.json]
+   [mount.core :refer [defstate] :as mount]
    [tick.alpha.api :as time]
    [yada.yada :refer [as-resource] :as yada]))
 
@@ -129,8 +130,14 @@
         (println "Transactors Started!")
         (println "Transactors Failed to Start.")))))
 
+(defstate transactor-state
+  :start
+  (start-transactors!)
+  :stop
+  (reset! transactor-map {}))
+
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(defn transactors []
+(def transactors
   (yada/resource
    {:id :transactors
     :description "this is the resource that returns all transactor documents"
@@ -148,7 +155,7 @@
                    (create-transactor! body)))}}}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(defn transactor []
+(def transactor
   (yada/resource
    {:id :transactor
     :description "resource for individual transactor"

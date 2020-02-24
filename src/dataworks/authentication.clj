@@ -75,7 +75,7 @@
       {:error "Incorrect Password"})
     {:error (str "User: " user " Not Found")}))
 
-(defn login []
+(def login
   (yada/resource
    {:id :login
     :description "This let's you log in"
@@ -94,7 +94,7 @@
       (add-user (assoc params :roles #{}))
       {:error (str "username: " user "is taken.")})))
 
-(defn register []
+(def register
   (yada/resource
    {:id :register
     :description "This let's you create an account"
