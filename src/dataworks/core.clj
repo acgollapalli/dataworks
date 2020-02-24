@@ -2,6 +2,7 @@
   (:require
    [bidi.bidi :as bidi]
    [clojure.core.async :refer [go-loop]]
+   [clojure.edn :as edn]
    [dataworks.authentication :as auth]
    [dataworks.collector :as c]
    [dataworks.transactor :as t]
@@ -21,9 +22,15 @@
       ["user" (c/user)]
       [true (as-resource nil)]]])
 
+(def port
+  (-> "config.edn"
+      slurp
+      edn/read-string
+      :port))
+
 (defstate svr
   :start
-  (listener (routes) {:port 3000})
+  (listener (routes) {:port port})
   :stop
   (:close svr))
 

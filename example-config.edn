@@ -1,4 +1,6 @@
 {
  :app-db-uri "mongodb://127.0.0.1:27017/Dataworks_AppData"
  :user-db-uri "mongodb://127.0.0.1:27017/Dataworks_UserData"
+ :jwt-secret "This secret ain't a secret, so don't use it, ya dog faced pony soldier. -- Joe Biden, probably."
+ :port 3000
  }
