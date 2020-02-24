@@ -137,7 +137,9 @@
     :authentication auth/dev-authentication
     :authorization auth/dev-authorization
     ;;:access-control auth/developer
-    :methods {:get {:response (fn [ctx] (get-transactors))}
+    :methods {:get
+              {:produces "application/json"
+               :response (fn [ctx] (get-transactors))}
               :post
               {:consumes #{"application/json"}
                :response
