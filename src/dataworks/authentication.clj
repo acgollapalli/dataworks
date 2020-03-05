@@ -43,9 +43,7 @@
   (let [claim-roles (edn/read-string (:roles authenticate))
         auth-roles (:custom/roles authorization)
         roles (st/intersection claim-roles auth-roles)]
-    (if (empty? roles) nil roles)
-    )
-  )
+    (if (empty? roles) nil roles)))
 
 (def dev-authentication
   {:realm "Developer"
@@ -92,7 +90,7 @@
     (add-user (assoc params :roles #{:admin :developer}))
     (if (empty? (mc/find-maps app-db "users" {:user user}))
       (add-user (assoc params :roles #{}))
-      {:error (str "username: " user "is taken.")})))
+      {:error (str "username: " user " is taken.")})))
 
 (def register
   (yada/resource

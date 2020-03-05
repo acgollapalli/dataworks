@@ -2,9 +2,9 @@
   (:require
    [bidi.bidi :as bidi]
    [clojure.edn :as edn]
-   [dataworks.authentication :as auth]
-   [dataworks.collector :as c]
-   [dataworks.transactor :as t]
+   [dataworks.authentication :as auth :reload ]
+   [dataworks.collector :as c :reload]
+   [dataworks.transactor :as t :reload]
    [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [listener resource as-resource]])
   (:gen-class))
