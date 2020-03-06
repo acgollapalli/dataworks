@@ -13,6 +13,29 @@
    [clojure.pprint :refer [pprint] :as p]
    [bidi.bidi :as bidi]))
 
+;; A collector does a thing when an endpoint is called.
+;; It's effectively a yada resource and a path.
+;; You might reasonably think of it as an API endpoint.
+;; Whatever you specify as your :resource, it must evaluate to a yada resource.
+;; For information on yada resources see:
+;;     https://github.com/juxt/yada/tree/master/doc
+;; (The manual on the website is outdated. We're on the alpha version of yada.)
+;;
+;; Example: POST to app/collector
+;;
+;; {
+;;  "name" : "text",
+;;  "path" : "text",
+;;  "resource" : "{:id :text-send
+;;                 :description \"sends a text\"
+;;                 :methods {:post {:consumes #{\"text/plain\", \"application/json\"}
+;;                                  :produces \"text/plain\"
+;;                                  :response (fn [ctx]
+;;                                              (let [body (:body ctx)]
+;;                                                   (transact! :text body)
+;;                                                   \"success!\"))}}}"
+;; }
+
 (def resource-map
   (atom
    {}))
@@ -82,7 +105,6 @@
 (def user-sub
    (fn [ctx]
       (let [path-info (get-in ctx [:request :path-info])]
-        ;;(println path-info)
         (if-let [path (bidi/match-route ["/" @atomic-routes] path-info)]
                      (@resource-map (:handler path))))))
 
@@ -101,7 +123,6 @@
     :authentication auth/dev-authentication
     :authorization auth/dev-authorization
     :methods {:get {:response (fn [ctx]
-                                ;;(pprint ctx)
                                 (get-collectors))
                     :produces "application/json"}
               :post
@@ -109,8 +130,7 @@
                :produces "application/json"
                :response
                (fn [ctx]
-                 (let [body (ctx :body)]
-                   ;;(p/pprint ctx)
+                 (let [body (:body ctx)]
                    (create-collector! body)))}}}))
 
 ;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
@@ -134,5 +154,5 @@
                :response
                (fn [ctx]
                  (let [id (get-in ctx [:request :route-params :id])
-                       body (ctx :body)]
+                       body (:body ctx)]
                    (update-collector! id (remove :_id body))))}}}))
