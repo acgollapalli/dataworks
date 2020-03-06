@@ -35,8 +35,8 @@
 ;;             (let [twilio-sid \"YOUR-TWILIO-SID\"
 ;;                   twilio-token \"YOUR-TWILIO-TOKEN\"
 ;;                   hello-body {:Body (str body)
-;;                               :From \"+12015281273\"
-;;                               :To \"+12817251828\"}]
+;;                               :From \"TWILIO-PHONE-NUMBER\"
+;;                               :To \"YOUR-PHONE-NUMBER\"}]
 ;;                  (client/post (str \"https://api.twilio.com/2010-04-01/Accounts/\"
 ;;                                    twilio-sid
 ;;                                    \"/Messages.json\")
