@@ -69,7 +69,7 @@
           (if (= java.time.Duration (type t))
             (time/millis t)
             (if (= java.time.Instant (type t))
-              (time/millis (time/between t (time/now))))))))) ;; TODO add proper error handling
+              (time/millis (time/between (time/now) t)))))))) ;; TODO add proper error handling
 
 (defn get-internals []
   (do (println "Getting Internals!")

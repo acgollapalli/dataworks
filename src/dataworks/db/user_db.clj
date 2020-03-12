@@ -10,8 +10,7 @@
   (-> "config.edn"
       slurp
       edn/read-string
-      :app-db-uri))
-
+      :user-db-uri))
 
 (defstate db*
   :start
