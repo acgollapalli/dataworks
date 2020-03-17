@@ -7,6 +7,7 @@
    [monger.collection :as mc]
    [monger.operators :refer :all]
    [monger.conversion :refer [to-object-id]]
+   [monger.query :as mq]
    [monger.json]
    [tick.alpha.api :as t]))
 

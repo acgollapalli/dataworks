@@ -4,7 +4,7 @@
    [clj-http.client :as client]
    [dataworks.time-utils]
    [monger.json]
-   [tick.alpha.api :as time]))
+   [tick.alpha.api :as t]))
 
 (def transactor-ns *ns*)
 

@@ -12,7 +12,9 @@
    [tick.alpha.api :as t]
    [yada.yada :refer [as-resource] :as yada]))
 
-(def db user-db)
+(defstate db
+  :start user-db
+  :end nil)
 
 (def collector-ns *ns*)
 
