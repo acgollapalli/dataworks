@@ -92,7 +92,7 @@
    [monger.collection :as mc]
    [monger.operators :refer :all]
    [monger.conversion :refer [to-object-id]]
-   [tick.alpha.api :as t]
+   [tick.alpha.api :as tick]
    [yada.yada :refer [as-resource] :as yada]
 
 ;; Our collector (the json field names are commented.)
@@ -148,7 +148,7 @@
 ;; client is the included clj-http.client
 ;; The following are provided in the transactors namespace:
    [clj-http.client :as client]
-   [tick.alpha.api :as t]
+   [tick.alpha.api :as tick]
 
 ;; Our transactor
 ;; name:
@@ -200,14 +200,9 @@
 ;; This lives in the internals namespace, for which the following are provided:
    [dataworks.db.user-db :refer [user-db]] ;; user-db is aliased as db for convenience
    [cheshire.core :as cheshire]
-   [dataworks.time-utils]
    [dataworks.transactor :refer [transact!]]
-   [monger.collection :as mc]
-   [monger.operators :refer :all]
-   [monger.conversion :refer [to-object-id]]
-   [monger.query :as mq]
-   [monger.json]
-[tick.alpha.api :as t]
+   [crux.api :as crux]
+   [tick.alpha.api :as tick]
 
 ;; Our Internal
 ;; name:

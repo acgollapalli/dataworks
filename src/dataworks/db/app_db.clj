@@ -1,23 +1,19 @@
 (ns dataworks.db.app-db
   (:require
-   [monger.core :as mg]
-   [monger.credentials :as mcr]
-   [mount.core :refer [defstate]]
    [clojure.java.io :as io]
-   [clojure.edn :as edn]))
+   [clojure.edn :as edn]
+   [crux.api :as crux]
+   [mount.core :refer [defstate]]))
 
-(defn db-uri []
-  (-> "config.edn"
-      slurp
-      edn/read-string
-      :app-db-uri))
-
-(defstate db*
-  :start
-  (mg/connect-via-uri (db-uri))
-  :stop
-  (-> db* :conn mg/disconnect))
+;;(defn db-uri []
+;;  (-> "config.edn"
+;;      slurp
+;;      edn/read-string
+;;      :app-db-params))
 
 (defstate app-db
   :start
-   (:db db*))
+  (crux/start-node {:crux.node/topology '[crux.standalone/topology]
+                    :crux.kv/db-dir (str (io/file "app-db" "db"))})
+  :stop
+  (.close app-db))

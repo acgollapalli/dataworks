@@ -2,9 +2,7 @@
   (:require
    [cheshire.core :as cheshire]
    [clj-http.client :as client]
-   [dataworks.time-utils]
-   [monger.json]
-   [tick.alpha.api :as t]))
+   [tick.alpha.api :as tick]))
 
 (def transactor-ns *ns*)
 

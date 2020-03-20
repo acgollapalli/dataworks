@@ -4,17 +4,12 @@
    [clj-http.client :as client]
    [clojure.core.async :refer [go] :as async]
    [clojure.pprint :refer [pprint] :as p]
+   [crux.api :as crux]
    [dataworks.db.app-db :refer [app-db]]
-   [dataworks.db.user-db :refer [user-db]]
    [dataworks.authentication :as auth]
    [dataworks.transactors :refer [transactor-ns]]
-   [monger.collection :as mc]
-   [monger.operators :refer :all]
-   [monger.conversion :refer [to-object-id]]
-   [monger.result :as result]
-   [monger.json]
    [mount.core :refer [defstate] :as mount]
-   [tick.alpha.api :as time]
+   [tick.alpha.api :as tick]
    [yada.yada :refer [as-resource] :as yada]))
 
 ;; A transactor does a thing when called.
@@ -46,70 +41,98 @@
 (def transactor-map
   (atom {}))
 
-(defn evalidate [f]
+;; TODO Add validation here.
+(defn evalidate [func]
   (binding [*ns* transactor-ns]
-    (eval (read-string f))))
+    (let [f (eval func)]
+      (if (fn? f)
+        f))))
 
 (defn get-transactors []
   (do (println "Getting Transactors!")
-      (let [trs (mc/find-maps app-db "transactors")]
-        trs)))
+      (map #(crux/entity (crux/db app-db) (first %))
+           (crux/q (crux/db app-db)
+                   '{:find [e]
+                     :where [[e :stored-function/type :transactor]
+                             [e :transactor/name n]
+                             [(keyword? n)]
+                             [e :transactor/func f]]}))))
 
-(defn get-transactor [id]
-  (mc/find-one-as-map app-db "transactors" {:name (keyword id)}))
+(defn get-transactor [name] ;;TODO maybe wrap this in something??
+  (crux/entity (crux/db app-db) (keyword "transactor" name)))
 
-(defn add-transactor! [{:keys [name func] :as params}]
-  (do
-    (swap! transactor-map
-           (fn [t-map]
-             (assoc t-map
-                    (keyword name)
-                    (evalidate func))))))
+(defn add-transactor!
+  ([{:transactor/keys [name func] :as params}]
+   (if-let [f (evalidate func)]
+     (add-transactor! name f)))
+  ([name f]
+   (swap! transactor-map #(assoc % (keyword name) f))))
 
-(defn create-transactor! [params]
-  (if-let [tran (mc/insert-and-return app-db
-                                      "transactors"
-                                      params)]
-      (add-transactor! params)))
+(defn new-transactor! [{:transactor/keys [name func] :as params}]
+  (if-let [f (evalidate func)]
+    (if (crux/submit-tx app-db [[:crux.tx/put params]])
+      (do (add-transactor! name f)
+          {:status :success
+           :message :transactor-added
+           :details params})
+      {:status :failure
+       :message :db-failed-to-update})
+    {:status :failure
+     :message :function-failed-to-evalidate}))
+
+(defn db-fy
+  ([{:keys [name func]}]
+  {:crux.db/id (keyword "transactor" name)
+   :transactor/name (keyword name)
+   :transactor/func func
+   :stored-function/type :transactor})
+  ([path-name {:keys [name func] :as params}]
+   (if name
+     (db-fy params)
+     (db-fy (assoc params :name path-name)))))
+
+(defn create-transactor! [{:keys [name] :as params}]
+  (if (get-transactor name)
+    {:status :failed
+     :message :transactor-already-exists}
+    (new-transactor! (db-fy params))))
 
 ;;TODO Add validation step of function
-(defn update-transactor! [id params]
-  (let [update  (mc/update "transactors"
-                           {:name (keyword id)}
-                           params)]
-    (if (result/acknowledged? update)
-      (do
-        (add-transactor! params)
-        "success")
-      "failure")))
+(defn update-transactor! [name params]
+  (let [current-transactor (get-transactor name)
+        new-transactor (db-fy name params)]
+    (cond (not= (:crux.db/id current-transactor)
+                (:crux.db/id new-transactor))
+          {:status :failure
+           :message :name-param-does-not-match-path}
+          (= (:transactor/func current-transactor)
+             (:transactor/func new-transactor))
+          {:status :failure
+           :message :no-change-from-current-func}
+          :else (new-transactor! params))))
 
 (defn start-transactors! []
-  (do
-    (println "Starting Transactors!")
-    (let [trs (get-transactors)
-          started-trs (map add-transactor! trs)]
-      (if (= (count trs)
-             (count started-trs))
-        (println "Transactors Started!")
-        (println "Transactors Failed to Start.")))))
+  (do (println "Starting Transactors!")
+      (let [trs (get-transactors)
+            started-trs (map add-transactor! trs)]
+        (if (= (count trs)
+               (count started-trs))
+          (println "Transactors Started!")
+          (println "Transactors Failed to Start.")))))
 
 (defstate transactor-state
-  :start
-  (start-transactors!)
-  :stop
-  (reset! transactor-map {}))
+  :start (start-transactors!)
+  :stop (reset! transactor-map {}))
 
 (defn transact! [tname & args]
-  (go
-    (((keyword tname) @transactor-map ) args)))
+  (go (((keyword tname) @transactor-map) args)))
 
 (def transactors
   (yada/resource
    {:id :transactors
     :description "this is the resource that returns all transactor documents"
-    :authentication auth/dev-authentication
-    :authorization auth/dev-authorization
-    ;;:access-control auth/developer
+    ;;:authentication auth/dev-authentication
+    ;;:authorization auth/dev-authorization
     :methods {:get
               {:produces "application/json"
                :response (fn [ctx] (get-transactors))}
@@ -124,22 +147,24 @@
   (yada/resource
    {:id :transactor
     :description "resource for individual transactor"
-    :parameters {:path {:id String}} ;; do I need plurumatic's schema thing?
-    :authentication auth/dev-authentication
-    :authorization auth/dev-authorization
-    ;;:access-control auth/developer
+    ;;:authentication auth/dev-authentication
+    ;;:authorization auth/dev-authorization
     :methods {:get
               {:produces "application/json"
                :response
                (fn [ctx]
-                 (let [id (get-in ctx [:request :route-params :id])]
-                   (get-transactor id)))}
+                 (let [name (get-in ctx [:request :path-info])]
+                   (if-let [transactor (get-transactor name)]
+                     {:status :success
+                      :message :transactor-retrieved
+                      :details transactor}
+                     {:status :failure
+                      :message :transactor-not-found})))}
               :post
               {:consumes #{"application/json"}
                :produces "application/json"
                :response
                (fn [ctx]
-                 (let [id (get-in ctx [:request :route-params :id])
+                 (let [name (get-in ctx [:request :path-info])
                        body (:body ctx)]
-                   {:update-status  ;; TODO make this less shitty
-                    (update-transactor! id body)}))}}}))
+                    (update-transactor! name body)))}}}))

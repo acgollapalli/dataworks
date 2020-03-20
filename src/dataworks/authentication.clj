@@ -5,12 +5,9 @@
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.set :as st]
+   [crux.api :as crux]
    [dataworks.db.app-db :refer [app-db]]
-   [monger.collection :as mc]
-   [monger.operators :refer :all]
-   [monger.conversion :refer [to-object-id]]
-   [monger.json]
-   [tick.alpha.api :as time]
+   [tick.alpha.api :as tick]
    [yada.yada :refer [as-resource] :as yada]))
 
 (def secret
@@ -23,9 +20,9 @@
   {:token
     (jwt/sign
      {:claims (pr-str {:user user :roles roles})
-      :timeout (str (time/+
-                     (time/date-time)
-                     (time/new-duration 30 :minutes)))}
+      :timeout (str (tick/+
+                     (tick/date-time)
+                     (tick/new-duration 30 :minutes)))}
      secret)})
 
 (defn token-verify [yada-syntax-map]
@@ -33,7 +30,7 @@
         tkn (jwt/unsign token secret)
         timeout (:timeout tkn)
         claims (edn/read-string (:claims tkn))]
-    (when (time/<= (time/date-time) (time/date-time timeout))
+    (when (tick/<= (tick/date-time) (tick/date-time timeout))
           claims)))
 
 (defn authenticate [ctx token scheme]
@@ -56,15 +53,21 @@
    :custom/roles #{:developer :admin}})
 
 (defn get-user [user]
-  (mc/find-one-as-map app-db "users" {:user user}))
+  (crux/entity app-db (keyword "user" user)))
 
-(defn add-user [{:keys [user pass email roles]}]
-  (dissoc
-   (mc/insert-and-return app-db "users" {:user user
-                                         :pass (hash/derive pass) ;;TODO remove hashed pass from response
-                                         :email email
-                                         :roles (pr-str roles)})
-   :pass :_id))
+
+(defn add-user [{:keys [user pass email roles display-name]}]
+  (do
+    (crux/submit-tx app-db
+                    [[:crux.tx/put
+                      {:crux.db/id (keyword "user" user)
+                       :user/user-name user
+                       :user/display-name display-name
+                       :user/email email
+                       :user/roles roles
+                       :user/pass (hash/derive pass)}]])
+    (dissoc (get-user user)
+            :user/pass)))
 
 (defn check-cred [{:keys [user pass]}]
   (if-let [user-doc (get-user user)]
@@ -86,9 +89,13 @@
                    (check-cred body)))}}}))
 
 (defn new-user [{:keys [user pass email] :as params}]
-  (if (mc/empty? app-db "users")
+  (if (empty?
+       (crux/q (crux/db app-db)
+               '{:find [e]
+                 :where [[e :crux.db/id e]
+                         [(clojure.string/starts-with? e ":user/")]]}))
     (add-user (assoc params :roles #{:admin :developer}))
-    (if (empty? (mc/find-maps app-db "users" {:user user}))
+    (if-not (get-user user)
       (add-user (assoc params :roles #{}))
       {:error (str "username: " user " is taken.")})))
 

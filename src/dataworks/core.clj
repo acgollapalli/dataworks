@@ -14,14 +14,14 @@
     ["/"
      [["app/"
        {"collector" c/collectors
-        ["collector/" :id] c/collector
+        "collector/" c/collector
         "transactor" t/transactors
         ["transactor/" :id] t/transactor
         "internal" i/internals
         ["internal/" :id] i/internal
         "register" auth/register
         "login" auth/login}]
-      ["user" c/user]
+      ["user/" c/user]
       [true (as-resource nil)]]])
 
 (def port
