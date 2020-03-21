@@ -1,13 +1,15 @@
 (ns dataworks.collector
   (:require
+   [clojure.edn :refer [read-string]]
+   [clojure.pprint :refer [pprint]]
+   [crux.api :as crux]
+   [dataworks.authentication :as auth]
    [dataworks.db.app-db :refer [app-db]]
    [dataworks.db.user-db :refer [user-db]]
    [dataworks.collectors :refer [collector-ns]]
-   [dataworks.authentication :as auth]
-   [crux.api :as crux]
+   [dataworks.common :refer :all]
    [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [as-resource] :as yada]
-   [clojure.pprint :refer [pprint] :as p]
    [bidi.bidi :as bidi]))
 
 ;; A collector does a thing when an endpoint is called.
@@ -40,14 +42,6 @@
 (def atomic-routes
   (atom {}))
 
-;; TODO ADD RESOURCE SECURITY VALIDATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1111111111
-;;(defn evalidate [resource-map]
-;;  "validates, sanitizes, and evaluates the resource map from db CURRENTLY UNSAFE (but necessary)"
-;;  (binding [*ns* collector-ns]
-;;    (if (string? resource-map)
-;;      (yada/resource (eval (read-string resource-map))) ;; TODO add case for eval fail
-;;      (yada/resource (eval resource-map)))))
-
 (defn get-collectors []
   (map #(crux/entity (crux/db app-db) (first %))
        (crux/q (crux/db app-db)
@@ -60,117 +54,8 @@
   (let [db (crux/db app-db)]
     (crux/entity db (keyword "collector" name))))
 
-;; TODO ADD PATH VALIDATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111
-;; TODO FIGURE OUT HUMAN READABLE ID'S IN MAPS WITHOUT DUPLICATES!!
-;;(defn add-collector!
-;;  ([{:collector/keys [path resource name] :as params}]
-;;  (if-let [r (evalidate resource)]
-;;      (add-collector! name path r)))
-;;  ([name path r]
-;;   (dosync
-;;       (swap! resource-map (fn [old-map]
-;;                             (assoc old-map (keyword name) r)))
-;;       (swap! atomic-routes (fn [old-map]
-;;                              (assoc old-map path (keyword name)))))))
-
-;;(defn new-collector! [{:collector/keys [name resource path] :as params}]
-;;  (if-let [r (evalidate resource)]
-;;    (if path
-;;      (if (crux/submit-tx app-db [[:crux.tx/put params]])
-;;        (do (add-collector! name r)
-;;            {:status :success
-;;             :message :collector-added
-;;             :details params})
-;;        {:status :failure
-;;         :message :db-failed-to-update})
-;;      {:status :failure
-;;       :message :path-failed-to-validate}) ;; this should have a details clause TODO
-;;    {:status :failure
-;;     :message :resource-failed-to-evalidate})) ;; this should have a details clause TODO
-
-
-
-;;(defn db-fy [{:keys [name resource path] }]
-;;  {:crux.db/id (keyword "collector" name)
-;;   :collector/name (keyword name)
-;;   :collector/resource (read-string resource)
-;;   :collector/path (let [evald-path (clojure.edn/read-string path)]
-;;                     (cond (symbol? evald-path) path
-;;                           (and (vector? evald-path)
-;;                                (every? #(or (keyword? %)
-;;                                             (string? %))
-;;                                        evald-path)) evald-path
-;;                           (string? evald-path) evald-path))
-;;   :stored-function/type :collector})
-;;
-;;;;(defn create-collector! [{:keys [name] :as collector}]
-;;;;  (if (get-collector name)
-;;;;    {:status :failed
-;;;;     :message :collector-already-exists}
-;;;;    (if (crux/submit-tx
-;;;;         app-db
-;;;;         [[:crux.tx/put (db-fy collector)]])
-;;;;      (add-collector! (get-collector name)))
-;;;;    {:status :failure
-;;;;     :message :db-failed-to-update}))
-;;
-;;(defn create-collector! [{:keys [name path] :as params}]
-;;  (if (get-collector name)
-;;    {:status :failed
-;;     :message :collector-already-exists}
-;;    (if-let [other-colls (not-empty
-;;                          (crux/q
-;;                           (crux/db app-db)
-;;                           {:find ['e]
-;;                            :where [['e :stored-function/type :collector]
-;;                                    ['e :collector/path path]]}))]
-;;      (new-collector! (db-fy params))
-;;      {:status :failed
-;;       :message :collector-with-path-already-exists
-;;       :details other-colls})))
-;;
-;;;; TODO VERIFY THAT COLLECTOR UPDATED IN DB BEFORE CALLING add-collector!
-;;;;(defn update-collector! [name params]
-;;;;  (if (crux/submit-tx
-;;;;       app-db
-;;;;       [[:crux.tx/put (db-fy params)]])
-;;;;    (add-collector! (get-collector name))
-;;;;    {:status :failure
-;;;;     :message :db-failed-to-update}))
-;;(defn update-collector! [name params]
-;;  (let [current-collector (get-collector name)
-;;        new-collector (db-fy name params)]
-;;    (cond (not= (:crux.db/id current-collector)
-;;                (:crux.db/id new-collector))
-;;          {:status :failure
-;;           :message :name-param-does-not-match-path}
-;;          (and (= (:collector/path current-collector)
-;;                  (:collector/path new-collector))
-;;               (= (:collector/resource current-collector)
-;;                  (:collector/resource new-collector)))
-;;          {:status :failure
-;;           :message :no-change-from-current-resource-or-path}
-;;          :else (new-collector! params))))
-
-;;Creating Collector:
-;;:db-fy
-;;:collector-already-exists
-;;:other-collector-with-path-already-exists
-;;:path-failed-to-validate
-;;:resource-failed-to-evalidate
-;;:db-failed-to-update
-;;:add-collector
-;;
-;;Updating Collector:
-;;:db-fy
-;;:name-param-does-not-match-path
-;;:no-change-from-current-resource-or-path
-;;start at: :other-collector-with-path-already-exists
-
-
-
 (defn validate-path [path]
-  (let [evald-path (clojure.edn/read-string path)]
+  (let [evald-path (read-string path)]
     (cond (symbol? evald-path) path
           (and (vector? evald-path)
                (every? #(or (keyword? %)
@@ -185,38 +70,48 @@
      :message :invalid-path
      :details path}))
 
-(defn blank-field?
-  ([m & fields]
-   (loop [fs fields]
-     (if fields
-       (if (blank? ((first fields) m))
-         {:status :failure
-          :message (keyword (next (str (first fields) "-cannot be blank")))}
-         (recur (next fs)))))))
+(defn resource-parseable? [{:keys [resource] :as params}]
+  (if (string? resource)
+    (try (assoc params :resource (read-string resource))
+       (catch Exception e {:status :failure
+                           :message :unable-to-parse-resource
+                           :details (.getMessage e)}))
+    params))
 
-(defn missing-field?
-  ([m & fields]
-   (loop [fs fields]
-     (if fields
-       (if (blank? ((first fields) m))
-         {:status :failure
-          :message (keyword (next (str (first fields) "-must-have-a-value")))}
-         (recur (next fs)))))))
+(defn updating-correct-fn? [{:keys [name] :as params} path-name]
+  (if name
+    (if (= name path-name)
+      params
+      {:status :failure
+       :message :name-param-does-not-match-path
+       :details (str "We don't let you rename stored functions.\n"
+                     "If it's changed enough to be renamed, "
+                     "it's a different function at that point\n"
+                     "Best thing is to retire the old function "
+                     "and create a new one.")})
+    (assoc params :name path-name)))
 
-(defn valid-name? [{:keys [name] :as collector}]
-  (cond (not (string? name))
-        {:status :failure
-         :message :name-must-be-string}
-        (clojure.string/include? name ":")
-        {:status :failure
-         :message :name-cannot-include-colon}
-        (clojure.string/starts-with? name "/")
-        {:status :failure
-         :message :name-cannot-start-with-slash}
-        (clojure.string/includes? name " ")
-        {:status :failure
-         :message :name-cannot-include-whitespace}
-        :else collector))
+(defn add-current-collector [{:keys [name] :as collector}]
+  [collector (get-collector name)])
+
+(defn has-path? [{:keys [path name] :as params} current-collector]
+  (if-not path
+    (assoc params :path (:collector/path current-collector))
+    params))
+
+(defn has-resource? [{:keys [resource name] :as params} current-collector]
+  (if-not resource
+    (assoc params :resource (:collector/resource current-collector))
+    params))
+
+(defn valid-update? [{:keys [path resource] :as params} current-collector]
+  (if (and (= (:collector/path current-collector)
+              path)
+           (= (:collector/resource current-collector)
+              (read-string resource)))
+    {:status :failure
+     :message :no-change-from-current-resource-or-path}
+    params))
 
 (defn collector-already-exists? [{:keys [name] :as collector}]
   (if-let [other-collector (get-collector name)]
@@ -240,13 +135,10 @@
 (defn evalidate [resource-map]
   "validates, sanitizes, and evaluates the resource map from db CURRENTLY UNSAFE (but necessary)"
   (binding [*ns* collector-ns]
-    (try
-      (if (string? resource-map)
-        (yada/resource (eval (read-string resource-map)))
-        (yada/resource (eval resource-map)))
-      (catch Exception e {:status :failure
-                          :message :unable-to-evalidate-resource
-                          :details (.getMessage e)}))))
+    (try (yada/resource (eval resource-map))
+         (catch Exception e {:status :failure
+                             :message :unable-to-evalidate-resource
+                             :details (.getMessage e)}))))
 
 (defn evalidated? [{:keys [name path resource] :as collector}]
   (let [e (evalidate resource)]
@@ -257,7 +149,7 @@
 (defn db-fy [{:keys [name resource path]}]
   {:crux.db/id (keyword "collector" name)
    :collector/name (keyword name)
-   :collector/resource (read-string resource)
+   :collector/resource resource
    :collector/path path
    :stored-function/type :collector})
 
@@ -270,21 +162,17 @@
 
 (defn add-collector!
   ([{:collector/keys [path resource name] :as params}]
-   (if-let [r (evalidate resource)]
-     (add-collector! name path r)))
-  ([name path r]
+   (if-let [evald-resource (evalidate resource)]
+     (add-collector! [params evald-resource])))
+  ([[{:collector/keys [path name] :as params} evald-resource]]
    (dosync
     (swap! resource-map (fn [old-map]
                           (assoc old-map name r)))
     (swap! atomic-routes (fn [old-map]
-                           (assoc old-map path name))))))
-
-(defn added-to-collectors? [{:collector/keys [name path] :as collector}
-                            evald-resource]
-  (do (add-collector! name path evald-resource)
-      {:status :success
-       :message :collector-added
-       :details collector}))
+                           (assoc old-map path name)))
+    {:status :success
+     :message :collector-added
+     :details collector})))
 
 (defn start-collectors! []
   (do (println "Starting Collectors")
@@ -294,6 +182,31 @@
                (count (last started-colls)))
           (println "Started Collectors!")
           (println "Failed to Start Collectors.")))))
+
+(defn create-collector! [collector]
+  (->? collector
+       (blank-field? :name :path :resource)
+       valid-path?
+       valid-name?
+       resource-parseable?
+       collector-already-exists?
+       other-collector-with-path?
+       evalidated?
+       added-to-db?
+       add-collector!))
+
+(defn update-collector! [name params]
+  (->? params
+       (updating-correct-fn? name)
+       add-current-collector
+       has-path?
+       has-resource?
+       resource-parseable?
+       valid-update?
+       valid-path?
+       evalidated?
+       added-to-db?
+       add-collector!))
 
 (defstate collector-state
   :start
