@@ -1,6 +1,6 @@
 (ns dataworks.common
   (:require
-   [string :as string]))
+   [clojure.string :as string]))
 
 (defmacro ->?
   "A utility function for validation of data and transactions"
@@ -38,7 +38,7 @@
   (cond (not (string? name))
         {:status :failure
          :message :name-must-be-string}
-        (string/include? name ":")
+        (string/includes? name ":")
         {:status :failure
          :message :name-cannot-include-colon}
         (string/starts-with? name "/")

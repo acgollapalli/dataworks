@@ -161,10 +161,10 @@
      :message :db-failed-to-update}))
 
 (defn add-collector!
-  ([{:collector/keys [resource] :as params}]
+  ([{:collector/keys [resource] :as collector}]
    (if-let [evald-resource (evalidate resource)]
-     (add-collector! [params evald-resource])))
-  ([[{:collector/keys [path name] :as collector} evald-resource]]
+     (add-collector! collector evald-resource)))
+  ([{:collector/keys [resource path name] :as collector} evald-resource]
    (dosync
     (swap! resource-map (fn [old-map]
                           (assoc old-map name evald-resource)))
@@ -173,6 +173,9 @@
     {:status :success
      :message :collector-added
      :details collector})))
+
+(defn apply-collector! [params]
+  (apply add-collector! params))
 
 (defn start-collectors! []
   (println "Starting Collectors")
@@ -191,9 +194,8 @@
        resource-parseable?
        collector-already-exists?
        other-collector-with-path?
-       evalidated?
        added-to-db?
-       add-collector!))
+       apply-collector!))
 
 (defn update-collector! [name params]
   (->? params
@@ -206,7 +208,7 @@
        valid-path?
        evalidated?
        added-to-db?
-       add-collector!))
+       apply-collector!))
 
 (defstate collector-state
   :start
