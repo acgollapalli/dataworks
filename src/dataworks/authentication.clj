@@ -3,12 +3,11 @@
    [buddy.hashers :as hash]
    [buddy.sign.jwt :as jwt]
    [clojure.edn :as edn]
-   [clojure.java.io :as io]
    [clojure.set :as st]
    [crux.api :as crux]
    [dataworks.db.app-db :refer [app-db]]
    [tick.alpha.api :as tick]
-   [yada.yada :refer [as-resource] :as yada]))
+   [yada.yada :as yada]))
 
 (def secret
   (-> "config.edn"
@@ -57,21 +56,20 @@
 
 
 (defn add-user [{:keys [user pass email roles display-name]}]
-  (do
-    (crux/submit-tx app-db
-                    [[:crux.tx/put
-                      {:crux.db/id (keyword "user" user)
-                       :user/user-name user
-                       :user/display-name display-name
-                       :user/email email
-                       :user/roles roles
-                       :user/pass (hash/derive pass)}]])
-    (dissoc (get-user user)
-            :user/pass)))
+  (crux/submit-tx app-db
+                  [[:crux.tx/put
+                    {:crux.db/id (keyword "user" user)
+                     :user/user-name user
+                     :user/display-name display-name
+                     :user/email email
+                     :user/roles roles
+                     :user/pass (hash/derive pass)}]])
+  (dissoc (get-user user)
+          :user/pass))
 
 (defn check-cred [{:keys [user pass]}]
   (if-let [user-doc (get-user user)]
-    (if (= (hash/check pass (:pass user-doc)))
+    (if (hash/check pass (:pass user-doc))
       (create-token user-doc)
       {:error "Incorrect Password"})
     {:error (str "User: " user " Not Found")}))
@@ -88,7 +86,7 @@
                  (let [body (:body ctx)]
                    (check-cred body)))}}}))
 
-(defn new-user [{:keys [user pass email] :as params}]
+(defn new-user [{:keys [user] :as params}]
   (if (empty?
        (crux/q (crux/db app-db)
                '{:find [e]

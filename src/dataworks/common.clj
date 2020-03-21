@@ -1,7 +1,10 @@
-(ns dataworks.common)
+(ns dataworks.common
+  (:require
+   [string :as string]))
 
-(defmacro ->? [x & forms]
+(defmacro ->?
   "A utility function for validation of data and transactions"
+  [x & forms]
   (loop [x x
          forms forms]
     (if-not forms
@@ -17,31 +20,31 @@
   ([m & fields]
    (loop [fs fields]
      (if fields
-       (if (blank? ((first fields) m))
+       (if (string/blank? ((first fields) m))
          {:status :failure
-          :message (keyword (next (str (first fields) "-cannot be blank")))}
+          :message (keyword (string/replace (str (first fields) "-cannot be blank") #":" ""))}
          (recur (next fs)))))))
 
 (defn missing-field?
   ([m & fields]
    (loop [fs fields]
      (if fields
-       (if (blank? ((first fields) m))
+       (if (nil? ((first fields) m))
          {:status :failure
-          :message (keyword (next (str (first fields) "-must-have-a-value")))}
+          :message (keyword (string/replace (str (first fields) "-must-have-a-value") #":" ""))}
          (recur (next fs)))))))
 
 (defn valid-name? [{:keys [name] :as params}]
   (cond (not (string? name))
         {:status :failure
          :message :name-must-be-string}
-        (clojure.string/include? name ":")
+        (string/include? name ":")
         {:status :failure
          :message :name-cannot-include-colon}
-        (clojure.string/starts-with? name "/")
+        (string/starts-with? name "/")
         {:status :failure
          :message :name-cannot-start-with-slash}
-        (clojure.string/includes? name " ")
+        (string/includes? name " ")
         {:status :failure
          :message :name-cannot-include-whitespace}
         :else params))

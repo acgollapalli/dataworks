@@ -5,7 +5,6 @@
    [crux.api :as crux]
    [dataworks.authentication :as auth]
    [dataworks.db.app-db :refer [app-db]]
-   [dataworks.db.user-db :refer [user-db]]
    [dataworks.collectors :refer [collector-ns]]
    [dataworks.common :refer :all]
    [mount.core :refer [defstate] :as mount]
@@ -94,12 +93,12 @@
 (defn add-current-collector [{:keys [name] :as collector}]
   [collector (get-collector name)])
 
-(defn has-path? [{:keys [path name] :as params} current-collector]
+(defn has-path? [{:keys [path] :as params} current-collector]
   (if-not path
     (assoc params :path (:collector/path current-collector))
     params))
 
-(defn has-resource? [{:keys [resource name] :as params} current-collector]
+(defn has-resource? [{:keys [resource] :as params} current-collector]
   (if-not resource
     (assoc params :resource (:collector/resource current-collector))
     params))
@@ -117,30 +116,32 @@
   (if-let [other-collector (get-collector name)]
     {:status :failed
      :message :collector-already-exists
-     :details other-colls}
+     :details other-collector}
     collector))
 
 (defn other-collector-with-path? [{:keys [path] :as collector}]
-  (if-let [other-colls (not-empty
+  (if-let [other-collectors (not-empty
                         (crux/q
                          (crux/db app-db)
                          {:find ['e]
                           :where [['e :stored-function/type :collector]
                                   ['e :collector/path path]]}))]
-    collector
     {:status :failed
      :message :collector-with-path-already-exists
-     :details other-colls}))
+     :details other-collectors})
+    collector)
 
-(defn evalidate [resource-map]
-  "validates, sanitizes, and evaluates the resource map from db CURRENTLY UNSAFE (but necessary)"
+(defn evalidate
+  "validates, sanitizes, and evaluates the resource map from db
+   CURRENTLY UNSAFE (but necessary)"
+  [resource-map]
   (binding [*ns* collector-ns]
     (try (yada/resource (eval resource-map))
          (catch Exception e {:status :failure
                              :message :unable-to-evalidate-resource
                              :details (.getMessage e)}))))
 
-(defn evalidated? [{:keys [name path resource] :as collector}]
+(defn evalidated? [{:keys [resource] :as collector}]
   (let [e (evalidate resource)]
     (if (= (type e) yada.resource.Resource)
       [collector e]
@@ -153,21 +154,20 @@
    :collector/path path
    :stored-function/type :collector})
 
-(defn added-to-db? [{:collector/keys [name resource path] :as collector}
-                    evald-resource]
+(defn added-to-db? [collector evald-resource]
   (if (crux/submit-tx app-db [[:crux.tx/put (db-fy collector)]])
     [collector evald-resource]
     {:status :failure
      :message :db-failed-to-update}))
 
 (defn add-collector!
-  ([{:collector/keys [path resource name] :as params}]
+  ([{:collector/keys [resource] :as params}]
    (if-let [evald-resource (evalidate resource)]
      (add-collector! [params evald-resource])))
-  ([[{:collector/keys [path name] :as params} evald-resource]]
+  ([[{:collector/keys [path name] :as collector} evald-resource]]
    (dosync
     (swap! resource-map (fn [old-map]
-                          (assoc old-map name r)))
+                          (assoc old-map name evald-resource)))
     (swap! atomic-routes (fn [old-map]
                            (assoc old-map path name)))
     {:status :success
@@ -175,13 +175,13 @@
      :details collector})))
 
 (defn start-collectors! []
-  (do (println "Starting Collectors")
-      (let [colls (get-collectors)
-            started-colls (map add-collector! colls)]
-        (if (= (count colls)
-               (count (last started-colls)))
-          (println "Started Collectors!")
-          (println "Failed to Start Collectors.")))))
+  (println "Starting Collectors")
+  (let [colls (get-collectors)
+        started-colls (map add-collector! colls)]
+    (if (= (count colls)
+           (count (last started-colls)))
+      (println "Started Collectors!")
+      (println "Failed to Start Collectors."))))
 
 (defn create-collector! [collector]
   (->? collector
