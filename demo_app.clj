@@ -114,7 +114,8 @@
                               pr-event {:crux.db/id id
                                         :log/event event
                                         :log/time (tick/now)
-                                        :app/name (keyword app)}
+                                        :app/name (keyword app)
+                                        :app/await (keyword app "await")}
                               details? #(if details
                                           (assoc % :log/details details)
                                           %)
@@ -224,57 +225,73 @@
 [tick.alpha.api :as tick]
 
 ;; Our Internal
+;; Query to find Apps that need to be monitored:
+(crux/q (crux/db db)
+        '{:find [app timestamp status next-event]
+          :where [[e :app/name app]
+                  [e :log/event status]
+                  [e :await/next-event next-event]
+                  [e :app/await await]
+                  [await :await/timestamp timestamp]]})
+;;Shorthand version:
+(query '{:find [app timestamp status next-event]
+          :where [[e :app/name app]
+                  [e :log/event status]
+                  [e :await/next-event next-event]
+                  [e :app/await await]
+                  [await :await/timestamp timestamp]]})
 ;; name:
-"demo-monitor"
+"demo-app"
+;; yes, we're naming it the same as the collector it's actual name is
+;; ;internal/demo-app because everything is namespaced, so this is fine.
+
 ;; next-run:
-(t/new-duration 1 :hours)
-;; init:
-{:last-status nil}
-;; func:
-(fn [{:keys [last-status]}]
-  (let [event-data (-> (mq/with-collection user-db "demo-app"
-                         (mq/sort {:app-started -1})
-                         (mq/limit 1))
-                       last
-                       :events
-                       first)
-        last-event (first event-data)
-        last-time (second event-data)
-        time-elapsed (t/between last-time (t/now))
-        return-value (fn [status number-of time-unit]
-                       {:last-status status
-                        :next-run (t/truncate
-                                   (t/+ (t/now)
-                                        (t/new-duration
-                                         number-of time-unit))
-                                   time-unit)})
-        waiting-for (fn [number-of time-unit]
-                      (t/>= time-elapsed
-                            (t/new-duration number-of time-unit)))
-        closed-handlers {:successfully-ended
-                         (fn []
-                           (return-value :successfully-ended 1 :hours))
-                         :ended-in-failure
-                         (fn []
-                           (do
-                             (transact! :text event-data)
-                             (return-value :ended-in-failure 1 :hours)))}]
-    (if-let [closed-handler (last-event closed-handlers)]
-      (closed-handler)
-      (if (and (waiting-for 2 :minutes)
-               (not= :no-response last-status))
-        (if-not (waiting-for 3 :minutes)
-          (return-value :waiting 1 :minutes)
-          (if-not (waiting-for 4 :minutes)
-            (return-value :still-waiting 1 :minutes)
-            (do
-              (transact! :text
-                         (str "demo-app has not responded for "
-                              (t/minutes time-elapsed)
-                              " minutes!\n"
-                              "Last status: " last-event))
-              (return-value :no-response 1 :hours)
-              (return-value last-event 2 :minutes)))))
+#time/duration "PT1H"
+;;You get this by running:
+(tick/new-duration 1 :minutes)
+;; Don't forget to run pr-string on it before sending!
+
+;; initial-value:
+{:events-checked-once {}}
+
+;; function:
+(fn [{:keys [events-checked-once]}]
+  (let [events-to-check (query '{:find [app timestamp status next-event]
+                                 :where [[e :app/name app]
+                                         [e :log/event status]
+                                         [e :await/next-event next-event]
+                                         [e :app/await await]
+                                         [await :await/timestamp timestamp]]})
+        now (tick/now)
+        waiting-since #(t/minutes (t/between % now))
+        waiting-too-long? (fn [[app timestamp status next-event]]
+                            (if-let [previous-timestamp (get events-checked-once app)]
+                              (= timestamp previous-timestamp)))
+        wait-a-bit-longer? #(not waiting-too-long? %)
+        it's-been-too-long (filter waiting-too-long)
+        let's-wait-a-bit-longer (filter wait-a-bit-longer)
+        text-the-dev (fn [[app timestamp status next-event]]
+                       (transact!
+                        :text
+                        (str app " has not checked in.\n\n"
+                             "Expected information " (waiting-since next-event)
+                             " minutes ago.\n"
+                             "Have not heard from " app
+                             "for " (waiting-since timestamp))))
+        check-in-a-minute (fn [event-map [app timestamp status next-event]]
+                            (assoc event-map app timestamp))
+        we'll-check-in-a-minute #(reduce check-in-a-minute {} %)
+        let-the-dev-know (map text-the-dev)]
+    (if-not (empty? events-to-check)
+      (when-not (empty? events-checked-once)
+        (comp let-the-dev-know
+              it's-been-too-long
+              events-to-check)
+        {:events-checked-once (check-in-a-minute
+                               let's-wait-a-bit-longer
+                               events-to-check)})
+      {:events-checked-once {}})))
+
 
 ;; The Transformer:
 ;; So far I haven't written the code for Transformers yet so...
