@@ -93,7 +93,7 @@
 
 (defn create-transactor! [{:keys [name] :as params}]
   (if (get-transactor name)
-    {:status :failed
+    {:status :failure
      :message :transactor-already-exists}
     (new-transactor! (db-fy params))))
 

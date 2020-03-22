@@ -81,19 +81,20 @@
 ;; a let macro.
 
 ;; Collectors have access to your mongo database, a time library called tick to tell
-;; time, a safe read-string so you can accept serrialized edn params, and yada, so you
+;; time, a safe read-string so you can accept serialized edn params, and yada, so you
 ;; can make yada resources easily
 
 ;; Our Demo Collector:
 ;; This lives in the transactors namespace in which the following are provided:
-   [clojure.edn :refer [read-string]]
-   [dataworks.db.user-db :refer [user-db]] ;; user-db can be called as db for convenience.
-   [dataworks.transactor :refer [transact!]]
-   [monger.collection :as mc]
-   [monger.operators :refer :all]
-   [monger.conversion :refer [to-object-id]]
-   [tick.alpha.api :as tick]
-   [yada.yada :refer [as-resource] :as yada]
+[dataworks.db.user-db :refer [user-db]] ;; user-db can be called as db for convenience.
+[dataworks.transactor :refer [transact!]]
+[monger.collection :as mc]
+[monger.operators :refer :all]
+[monger.conversion :refer [to-object-id]]
+[tick.alpha.api :as tick]
+[yada.yada :refer [as-resource] :as yada]
+
+
 
 ;; Our collector (the json field names are commented.)
 ;; Path:
@@ -107,30 +108,47 @@
            {:consumes #{"application/json"}
             :produces "application/json"
             :response (fn [ctx]
-                        (let [{:keys [app app-started event details app-ended]} (:body ctx)
-                              start-time (t/parse app-started)
-                              log-event
-                              (fn []
-                                (mc/update db app
-                                           {:app-started start-time}
-                                           {$push {:events (if details
-                                                             [(keyword event) (t/now) details]
-                                                             [(keyword event) (t/now)])}}
-                                           {:upsert true}))]
-                          (if-not event
-                            (mc/insert-and-return db app
-                                                  {:app-started start-time
-                                                   :events [[:app-started (t/now)]]}))
-                          (when event (log-event))
-                          (when app-ended
-                            (mc/update db app
-                                       {:app-started start-time}
-                                       {$set {:app-ended (t/parse app-ended)}}))
-                          {:event-logged (if event event start-time)}))}}}
+                        (let [{:keys [app event details next-event]} (:body ctx)
+                              id (keyword app "log")
+                              now (tick/now)
+                              pr-event {:crux.db/id id
+                                        :log/event event
+                                        :log/time (tick/now)
+                                        :app/name (keyword app)}
+                              details? #(if details
+                                          (assoc % :log/details details)
+                                          %)
+                              top-of-the-hour (tick/truncate
+                                               (tick/+ now
+                                                       (tick/new-duration 1 :hours))
+                                               :hours)
+                              next-event? #(let [nxt (read-string next-event)]
+                                             (println nxt)
+                                             (assoc %
+                                                    :await/next-event
+                                                    (cond
+                                                      (or (= (type nxt) java.util.Date)
+                                                          (= (type nxt) java.time.Instant))
+                                                      nxt
+                                                      (= (type nxt) java.time.Duration)
+                                                      (tick/+ now nxt)
+                                                      (= :never nxt) :never
+                                                      :else top-of-the-hour)))
+                              tx-event (-> pr-event
+                                           details?
+                                           next-event?)
+                              await-event {:crux.db/id (keyword app "await")
+                                           :app/name (keyword app)
+                                           :await/timestamp now}]
+                          (crux/submit-tx db [[:crux.tx/put tx-event]
+                                              (when-not (= :never (:await/next-event tx-event))
+                                                [:crux.tx/put await-event
+                                                 (tick/inst (:await/next-event tx-event))])])
+                          (crux/entity (crux/db db) id)))}}}
 
 ;; The Transactor
 ;; The Transactor does something when it's called. That's it. It can do it as many times
-;; you call it to. It doesn't return anything (except whatever it is that a go-block
+;; as you call it to. It doesn't return anything (except whatever it is that a go-block
 ;; returns). But it does what you tell it to, when you tell it to.
 
 ;; The important thing about a transactor is that you can call it from other Stored Functions.
@@ -147,8 +165,9 @@
 ;; Our transactor that we use to text ourselves:
 ;; client is the included clj-http.client
 ;; The following are provided in the transactors namespace:
-   [clj-http.client :as client]
-   [tick.alpha.api :as tick]
+[cheshire.core :as cheshire]
+[clj-http.client :as client]
+[tick.alpha.api :as tick]
 
 ;; Our transactor
 ;; name:
@@ -198,11 +217,11 @@
 ;; looking at 6 or so functions, not just one.
 
 ;; This lives in the internals namespace, for which the following are provided:
-   [dataworks.db.user-db :refer [user-db]] ;; user-db is aliased as db for convenience
-   [cheshire.core :as cheshire]
-   [dataworks.transactor :refer [transact!]]
-   [crux.api :as crux]
-   [tick.alpha.api :as tick]
+[dataworks.db.user-db :refer [user-db]] ;; user-db is aliased as db for convenience
+[cheshire.core :as cheshire]
+[dataworks.transactor :refer [transact!]]
+[crux.api :as crux]
+[tick.alpha.api :as tick]
 
 ;; Our Internal
 ;; name:
