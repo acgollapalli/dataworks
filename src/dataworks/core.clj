@@ -15,9 +15,9 @@
      {"collector" c/collectors
       "collector/" c/collector
       "transactor" t/transactors
-      ["transactor/" :id] t/transactor
+      "transactor/" t/transactor
       "internal" i/internals
-      ["internal/" :id] i/internal
+      "internal/" i/internal
       "register" auth/register
       "login" auth/login}]
     ["user/" c/user]
@@ -40,6 +40,7 @@
    "#'dataworks.db.user-db/user-db"
    "#'dataworks.collectors/db"
    "#'dataworks.collector/collector-state"
+   "#'dataworks.transactor/transactor-state"
    "#'dataworks.core/svr"])
 
 

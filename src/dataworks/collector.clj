@@ -78,20 +78,6 @@
                            :details (.getMessage e)}))
     params))
 
-(defn updating-correct-fn? [{:keys [name] :as params} path-name]
-  (println "Checking for correct function: " path-name "," name)
-  (if name
-    (if (= name path-name)
-      params
-      {:status :failure
-       :message :name-param-does-not-match-path
-       :details (str "We don't let you rename stored functions.\n"
-                     "If it's changed enough to be renamed, "
-                     "it's a different function at that point\n"
-                     "Best thing is to retire the old function "
-                     "and create a new one.")})
-    (assoc params :name path-name)))
-
 (defn add-current-collector [{:keys [name] :as collector}]
   (println "Adding current collector:" name)
   [collector (get-collector name)])
@@ -216,7 +202,7 @@
 
 (defn update-collector! [name params]
   (->? params
-       (updating-correct-fn? name)
+       (updating-correct-function? name)
        add-current-collector
        has-path?
        has-resource?
