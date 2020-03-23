@@ -85,15 +85,15 @@
 ;; can make yada resources easily
 
 ;; Our Demo Collector:
-;; This lives in the transactors namespace in which the following are provided:
-[dataworks.db.user-db :refer [user-db]] ;; user-db can be called as db for convenience.
-[dataworks.transactor :refer [transact!]]
-[monger.collection :as mc]
-[monger.operators :refer :all]
-[monger.conversion :refer [to-object-id]]
-[tick.alpha.api :as tick]
-[yada.yada :refer [as-resource] :as yada]
-
+;; This lives in the collectors namespace in which the following are provided:
+   [dataworks.common :refer :all]
+   [dataworks.db.user-db :refer [user-db submit-tx query entity]]
+   [dataworks.time-utils :refer [consume-time]]
+   [dataworks.transactor :refer [transact!]]
+   [crux.api :as crux]
+   [mount.core :refer [defstate] :as mount]
+   [tick.alpha.api :as tick]
+   [yada.yada :refer [as-resource] :as yada]
 
 
 ;; Our collector (the json field names are commented.)
@@ -119,49 +119,88 @@
                               details? #(if details
                                           (assoc % :log/details details)
                                           %)
-                              top-of-the-hour (tick/truncate
-                                               (tick/+ now
-                                                       (tick/new-duration 1 :hours))
-                                               :hours)
-                              next-event? #(let [nxt (read-string next-event)]
-                                             (println nxt)
+                              top-of-the-hour (consume-time now :hours)
+                              next-event? #(let [nxt (consume-time now next-event)]
                                              (assoc %
                                                     :await/next-event
-                                                    (cond
-                                                      (or (= (type nxt) java.util.Date)
-                                                          (= (type nxt) java.time.Instant))
-                                                      nxt
-                                                      (= (type nxt) java.time.Duration)
-                                                      (tick/+ now nxt)
-                                                      (= :never nxt) :never
-                                                      :else top-of-the-hour)))
+                                                    (if nxt nxt top-of-the-hour)))
                               tx-event (-> pr-event
                                            details?
                                            next-event?)
                               await-event {:crux.db/id (keyword app "await")
                                            :app/name (keyword app)
                                            :await/timestamp now}]
-                          (crux/submit-tx db [[:crux.tx/put tx-event]
-                                              (when-not (= :never (:await/next-event tx-event))
-                                                [:crux.tx/put await-event
-                                                 (tick/inst (:await/next-event tx-event))])])
-                          (crux/entity (crux/db db) id)))}}}
+                          (submit-tx [[:crux.tx/put tx-event]
+                                      (when-not (= :never (:await/next-event tx-event))
+                                        [:crux.tx/put await-event
+                                         (tick/inst (:await/next-event tx-event))])])
+                          (entity id)))}}}
+
+;; A brief explanation of the various convenience functions used in the above:
+
+;; consume-time:
+;;    Produces: java.time.Instant, :never, or nil
+;;
+;;    Accepts the following as time-literals, java types,
+;;    a string representation which tick/parse can turn
+;;    into one of the acceptable types, a sequence of any
+;;    of the above or either of the previous serialized
+;;    (stringified) by clojure.core/pr-str :
+;;
+;;    Consumes: java.time.Instant (#time/instant)
+;;              java.util.Date (#inst)
+;;              java.time.LocalDate (#time/date)
+;;              java.time.Duration (#time/duration)
+;;                  (returns as now + duration)
+;;              java.time.Period (#time/period)
+;;                  (returns as today's date + period)
+;;              java.time.DayOfWeek (#time/day-of-week)
+;;                  (returns as next day-of-week)
+;;              int (number of milliseconds,
+;;                   returns as now + milliseconds)
+;;              keyword indicating a duration or period
+;;                  (ex: :millis, :seconds, :minutes :hours,
+;;                   :weeks, :months, :years)
+;;              keyword indicating never (:never)
+;;
+;;   WARNING: Currently bad inputs don't produce exceptions, but just return nil.
+;;            This is because I haven't figured out how to handle typed polymorphism
+;;            in Clojure yet.
+;;
+;; This way our resource will accept serialized time-literals, including durations,
+;; as well as dates like "2020-04-05" and ISO datetimes of the sort that are normally
+;; used in JSON documents. We use tick, which bundles the time-literals library.
+;; Experiment with tick in the repl to figure out what each of them looks like.
+
+;; submit-tx
+;;   An aliased form of crux/submit-tx. Effectively it's #(crux/submit-tx db %)
+;; Added because I got tired of typing db. See crux documentation for more info.
+
+;; query
+;;   An aliased form of crux/q. Effectively it's #(crux/q (crux/db db) %). Although
+;;   it also accepts optional valid-time and transaction-time arguments for more
+;;   intensive queries.
+;;   Arities: [query], [valid-time query], [valid-time transaction-time query]
+;; Added because I got tired of typing (crux/db db).
+
 
 ;; The Transactor
-;; The Transactor does something when it's called. That's it. It can do it as many times
+;; The Transactor does a thing when it's called. That's it. It can do it as many times
 ;; as you call it to. It doesn't return anything (except whatever it is that a go-block
-;; returns). But it does what you tell it to, when you tell it to.
+;; returns). But it does what you tell it to, when you tell it to. It's what our dads all
+;; wish we'd have been.
 
 ;; The important thing about a transactor is that you can call it from other Stored Functions.
 ;; A Transactor is your ticket to the outside world. With a simple
-;; (transact! :your-transactor arguments), you can send text-messages, emails, call other API's
-;; or whatever you want!
+   (transact! :your-transactor arguments)
+;; you can send text-messages, emails, call other API's or whatever you want!
 
-;; This transactor we use the Twilio API to send ourselves text messages. I might have sent an
-;; infinite loop of them while developing the transactor, but I did it so you don't have to!
+;; For his transactor we use the Twilio API to send ourselves text messages. I might
+;; have sent an infinite loop of them while developing the transactor, but I did it so
+;; you don't have to!
 ;; Again it's just one s-expression per Stored Function.
-;; For transactors we give you clj-http so you can contact the outside world, and our time
-;; library tick, for obvious reasons.
+;; For transactors we give you clj-http so you can contact the outside world, cheshire
+;; because, clj-http likes that, and our time library tick, for obvious reasons.
 
 ;; Our transactor that we use to text ourselves:
 ;; client is the included clj-http.client

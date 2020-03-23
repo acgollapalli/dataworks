@@ -1,6 +1,5 @@
 (ns dataworks.collector
   (:require
-   [clojure.edn :refer [read-string]]
    [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
    [dataworks.authentication :as auth]

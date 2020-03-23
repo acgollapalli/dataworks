@@ -1,8 +1,8 @@
 (ns dataworks.collectors
   (:require
    [dataworks.common :refer :all]
-   [dataworks.db.user-db :refer [user-db]]
-   [dataworks.time-utils]
+   [dataworks.db.user-db :refer [user-db submit-tx query entity]]
+   [dataworks.time-utils :refer [consume-time]]
    [dataworks.transactor :refer [transact!]]
    [crux.api :as crux]
    [mount.core :refer [defstate] :as mount]
