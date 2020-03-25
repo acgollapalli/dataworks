@@ -4,6 +4,8 @@
    [clojure.core.async :refer [go go-loop chan close! alt! timeout] :as async]
    [clojure.pprint :refer [pprint] :as p]
    [dataworks.authentication :as auth]
+   [dataworks.common :refer :all]
+   [dataworks.time-utils :refer :all]
    [dataworks.db.app-db :refer [app-db]]
    [dataworks.db.user-db :refer [user-db]]
    [dataworks.internals :refer [internal-ns]]
@@ -138,44 +140,7 @@
   (start-internals!)
   :stop
   (do
-    (map (fn [{:keys [channel]}] (close! channel)) @internal-map)
+    (map (fn [{:keys [channel]}]
+           (close! channel))
+         @internal-map)
     (reset! internal-map {})))
-
-(def internals
-  (yada/resource
-   {:id :internals
-    :description "this is the resource that returns all internal documents"
-    :authentication auth/dev-authentication
-    :authorization auth/dev-authorization
-    :methods {:get
-              {:produces "application/json"
-               :response (fn [ctx] (get-internals))}
-              :post
-              {:consumes #{"application/json"}
-               :response
-               (fn [ctx]
-                 (let [body (:body ctx)]
-                   (create-internal! body)))}}}))
-
-(def internal
-  (yada/resource
-   {:id :internal
-    :description "resource for individual internal"
-    :parameters {:path {:id String}} ;; do I need plurumatic's schema thing?
-    :authentication auth/dev-authentication
-    :authorization auth/dev-authorization
-    :methods {:get
-              {:produces "application/json"
-               :response
-               (fn [ctx]
-                 (let [id (get-in ctx [:request :route-params :id])]
-                   (get-internal id)))}
-              :post
-              {:consumes #{"application/json"}
-               :produces "application/json"
-               :response
-               (fn [ctx]
-                 (let [id (get-in ctx [:request :route-params :id])
-                       body (:body ctx)]
-                   {:update-status  ;; TODO make this less shitty
-                    (update-internal! id body)}))}}}))

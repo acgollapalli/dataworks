@@ -2,9 +2,9 @@
   (:require
    [clojure.edn :as edn]
    [dataworks.authentication :as auth]
-   [dataworks.collector :as c]
-   [dataworks.internal :as i]
-   [dataworks.transactor :as t]
+   [dataworks.resource :refer [creation-resource
+                               update-resource
+                               user-resource]]
    [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [listener as-resource]])
   (:gen-class))
@@ -12,15 +12,15 @@
 (def routes
   ["/"
    [["app/"
-     {"collector" c/collectors
-      "collector/" c/collector
-      "transactor" t/transactors
-      "transactor/" t/transactor
-      "internal" i/internals
-      "internal/" i/internal
+     {"collector" (creation-resource :collector)
+      "collector/" (update-resource :collector)
+      "internal" (creation-resource :internal)
+      "internal/" (update-resource :internal)
+      "transactor" (creation-resource :transactor)
+      "transactor/" (update-resource :transactor)
       "register" auth/register
       "login" auth/login}]
-    ["user/" c/user]
+    ["user/" user-resource]
     [true (as-resource nil)]]])
 
 (def port

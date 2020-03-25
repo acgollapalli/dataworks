@@ -40,19 +40,8 @@
 (def atomic-routes
   (atom {}))
 
-(defn get-collectors []
-  (map #(crux/entity (crux/db app-db) (first %))
-       (crux/q (crux/db app-db)
-               '{:find [e]
-                 :where [[e :stored-function/type :collector]
-                         [e :collector/path]
-                         [e :collector/resource]]})))
-
-(defn get-collector [name]
-  (let [db (crux/db app-db)]
-    (crux/entity db (keyword "collector" name))))
-
 (defn validate-path [path]
+  (println "Validating path")
   (let [evald-path (read-string path)]
     (cond (symbol? evald-path) path
           (and (vector? evald-path)
@@ -61,61 +50,18 @@
                        evald-path)) evald-path
           (string? evald-path) evald-path)))
 
-(defn valid-path? [{:keys [path] :as collector}]
-  (println "Validating path:" path)
-  (if-let [valid-path (validate-path path)]
-    (assoc collector :path valid-path)
-    {:status :failure
-     :message :invalid-path
-     :details path}))
+(defn valid-path? [params]
+  (if-vector-first params
+    valid-path?
+    (let [path (:path params)
+          valid-path (validate-path path)]
+      (if valid-path
+        (assoc params :path valid-path)
+        {:status :failure
+         :message :invalid-path
+         :details path})) ))
 
-(defn resource-parseable? [{:keys [resource name] :as params}]
-  (println "Checking resource parseability: " name)
-  (if (string? resource)
-    (try (assoc params :resource (read-string resource))
-       (catch Exception e {:status :failure
-                           :message :unable-to-parse-resource
-                           :details (.getMessage e)}))
-    params))
-
-(defn add-current-collector [{:keys [name] :as collector}]
-  (println "Adding current collector:" name)
-  [collector (get-collector name)])
-
-(defn has-path? [[{:keys [path] :as params} current-collector]]
-  (println "Checking for path.")
-  (if-not path
-    (assoc params :path (:collector/path current-collector))
-    [params current-collector]))
-
-(defn has-resource? [[{:keys [resource] :as params} current-collector]]
-  (println "Checking for resource.")
-  (if-not resource
-    (assoc params :resource (:collector/resource current-collector))
-    (let [parseable-params (resource-parseable? params)
-          not-parseable (:status parseable-params)]
-      (if not-parseable
-        parseable-params
-        [parseable-params current-collector]))))
-
-(defn valid-update? [[{:keys [path resource] :as params} current-collector]]
-  (println "Checking if valid update.")
-  (if (and (= (:collector/path current-collector)
-              path)
-           (= (:collector/resource current-collector)
-              resource))
-    {:status :failure
-     :message :no-change-from-current-resource-or-path}
-    params))
-
-(defn collector-already-exists? [{:keys [name] :as collector}]
-  (println "Checking for duplicate collectors:" name)
-  (if-let [other-collector (get-collector name)]
-    {:status :failure
-     :message :collector-already-exists
-     :details other-collector}
-    collector))
-
+;; TODO create separate path document to avoid race condition.
 (defn other-collector-with-path? [{:keys [path] :as collector}]
   (println "Checking for duplicate paths:" path)
   (if-let [other-collectors (not-empty
@@ -132,35 +78,26 @@
 (defn evalidate
   "validates, sanitizes, and evaluates the resource map from db
    CURRENTLY UNSAFE (but necessary)"
-  [resource-map]
-  (binding [*ns* collector-ns]
-    (try (yada/resource (eval resource-map))
-         (catch Exception e {:status :failure
+  [{:keys [resource]:as params}]
+
+  (if-vector-conj params
+    evalidate
+    (binding [*ns* collector-ns]
+      (println "Evalidating.")
+      (try (yada/resource (eval resource))
+           (catch Exception e {:status :failure
                              :message :unable-to-evalidate-resource
-                             :details (.getMessage e)}))))
+                             :details (.getMessage e)})))))
 
-(defn evalidated? [{:keys [resource] :as collector}]
-  (println "Evalidating.")
-  (let [e (evalidate resource)]
-    (if (= (type e) yada.resource.Resource)
-      [collector e]
-      e)))
-
-(defn db-fy [{:keys [name resource path]}]
-  (println "db-fying.")
-  {:crux.db/id (keyword "collector" name)
-   :collector/name (keyword name)
-   :collector/resource resource
-   :collector/path path
-   :stored-function/type :collector})
-
-(defn added-to-db? [[{:keys [name] :as collector} evald-resource]]
-  (println "Adding to db: collector"  name)
-  (let [db-collector (db-fy collector)]
-    (if (crux/submit-tx app-db [[:crux.tx/put db-collector]])
-      [db-collector evald-resource]
-      {:status :failure
-       :message :db-failed-to-update})))
+(defn db-fy [{:keys [name resource path] :as params}]
+  (if-vector-first params
+    db-fy
+    (do
+      {:crux.db/id (keyword "collector" name)
+       :collector/name (keyword name)
+       :collector/resource resource
+       :collector/path path
+       :stored-function/type :collector})))
 
 (defn add-collector!
   ([{:collector/keys [resource] :as collector}]
@@ -182,34 +119,35 @@
 
 (defn start-collectors! []
   (println "Starting Collectors")
-  (let [colls (get-collectors)
+  (let [colls (get-stored-functions :collectors)
         status (map add-collector! colls)]
     (if (every? #(= (:status %) :success) status)
       (println "Started Collectors!")
-      (println "Failed to Start Collectors:" (map :name status)))))
+      (println "Failed to Start Collectors:"
+               (map :name status)))))
 
 (defn create-collector! [collector]
   (->? collector
        (blank-field? :name :path :resource)
        valid-path?
        valid-name?
-       resource-parseable?
-       collector-already-exists?
+       (parseable? :resource)
+       (function-already-exists? :collector)
        other-collector-with-path?
-       evalidated?
-       added-to-db?
+       evalidate
+       (added-to-db? db-fy)
        apply-collector!))
 
 (defn update-collector! [name params]
   (->? params
        (updating-correct-function? name)
-       add-current-collector
-       has-path?
-       has-resource?
-       valid-update?
+       (add-current-stored-function :collector)
+       (has-params? :collector :path)
+       (has-parsed-params? :collector :resource)
+       (valid-update? :collector :path :resource)
        valid-path?
-       evalidated?
-       added-to-db?
+       evalidate
+       (added-to-db? db-fy)
        apply-collector!))
 
 (defstate collector-state
@@ -222,7 +160,8 @@
 (def user-sub
   (fn [ctx]
     (let [path-info (get-in ctx [:request :path-info])]
-      (when-let [path (bidi/match-route ["" @atomic-routes] path-info)]
+      (when-let [path (bidi/match-route
+                       ["" @atomic-routes] path-info)]
         (@resource-map (:handler path))))))
 
 (def user
@@ -238,8 +177,9 @@
     :description "this is the resource that returns all collector documents"
     ;;:authentication auth/dev-authentication
     ;;:authorization auth/dev-authorization
-    :methods {:get {:response (fn [ctx]
-                                (get-collectors))
+    :methods {:get {:response
+                    (fn [ctx]
+                      (get-stored-functions :collectors))
                     :produces "application/json"}
               :post
               {:consumes #{"application/json"}
@@ -263,8 +203,8 @@
               {:produces "application/json"
                :response
                (fn [ctx]
-                 (let [id (get-in ctx [:request :path-info])]
-                   (get-collector id)))}
+                 (let [name (get-in ctx [:request :path-info])]
+                   (get-stored-function name :collector)))}
               :post
               {:consumes #{"application/json"}
                :produces "application/json"

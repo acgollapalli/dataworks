@@ -9,7 +9,8 @@
 (add-encoder java.time.Instant encode-str)
 
 (defn consume-time
-  "Produces: java.time.Instant, :never, or nil
+  "Produces: java.time.Instant, :never, or nil, or
+             a sequence/lazy-sequence of the same.
 
    Accepts the following as time-literals, java types,
    a string representation which tick/parse can turn

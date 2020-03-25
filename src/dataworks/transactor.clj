@@ -27,8 +27,8 @@
   (atom {}))
 
 ;; TODO Add validation here.
-(defn evalidate [{:keys [function]}]
-  (println "evalidating" function)
+(defn evals? [{:keys [name function] :as params}]
+  (println "evalidating" name)
   (binding [*ns* transactor-ns]
     (try (eval function)
          (catch Exception e
@@ -36,32 +36,28 @@
             :message :unable-to-evalidate-function
             :details (.getMessage e)}))))
 
-(defn function? [func]
-  (if (fn? func)
-    func
+(defn function? [function]
+  (if (fn? function)
+    function
     {:status :failure
      :message :function-param-does-not-evaluate-to-function}))
-(defn fn-conj [func params]
-  [params func])
 
-(defn evalidated? [params]
-  (println "evalidating")
-  (let [vec-params (if (vector? params)
-                     params
-                     [params])
-        conj-params #(conj vec-params %)]
-    (->? vec-params
-         first
-         evalidate
-         function?
-         conj-params)))
+(defn evalidate [params]
+  (if-vector-conj params
+    evalidate
+    (->? params
+         evals?
+         function?)))
 
 (defn add-transactor!
   ([{:transactor/keys [name function] :as params}]
    (if-let [f (evalidate function)]
      (add-transactor! params f)))
-  ([{:transactor/keys [name]} f]
-   (swap! transactor-map #(assoc % (keyword name) f))))
+  ([{:transactor/keys [name] :as params} f]
+   (swap! transactor-map #(assoc % (keyword name) f))
+   {:status :success
+    :message :transactor-added
+    :details params}))
 
 (defn apply-transactor! [params]
   (apply add-transactor! params))
@@ -83,10 +79,9 @@
        valid-name?
        (parseable? :function)
        (function-already-exists? :transactor)
-       evalidated?
-       (general-added-to-db? db-fy)
-       apply-transactor!
-       ))
+       evalidate
+       (added-to-db? db-fy)
+       apply-transactor!))
 
 (defn update-transactor! [path-name transactor]
   (->? transactor
@@ -95,19 +90,20 @@
        (parseable? :function)
        (add-current-stored-function :transactor)
        (has-params? :transactor :name)
-       (general-valid-update? :transactor :function)
-       evalidated?
-       (general-added-to-db? db-fy)
+       (valid-update? :transactor :function)
+       evalidate
+       (added-to-db? db-fy)
        apply-transactor!))
 
 (defn start-transactors! []
   (do (println "Starting Transactors!")
       (let [trs (get-stored-functions :transactor)
-            started-trs (map add-transactor! trs)]
+            status (map add-transactor! trs)]
         (if (= (count trs)
-               (count started-trs))
+               (count @transactor-map))
           (println "Transactors Started!")
-          (println "Transactors Failed to Start.")))))
+          (println "Transactors Failed to Start:"
+                   (map :name status))))))
 
 (defstate transactor-state
   :start (start-transactors!)
@@ -115,49 +111,3 @@
 
 (defn transact! [tname & args]
   (go (((keyword tname) @transactor-map) args)))
-
-(def transactors
-  (yada/resource
-   {:id :transactors
-    :description "this is the resource that returns
-                  all transactor documents"
-    ;;:authentication auth/dev-authentication
-    ;;:authorization auth/dev-authorization
-    :methods {:get
-              {:produces "application/json"
-               :response (fn [ctx]
-                           (get-stored-functions :transactor))}
-              :post
-              {:consumes #{"application/json"}
-               :response
-               (fn [ctx]
-                 (let [body (:body ctx)]
-                   (create-transactor! body)))}}}))
-
-(def transactor
-  (yada/resource
-   {:id :transactor
-    :description "resource for individual transactor"
-    ;;:authentication auth/dev-authentication
-    ;;:authorization auth/dev-authorization
-    :methods {:get
-              {:produces "application/json"
-               :response
-               (fn [ctx]
-                 (let [name (get-in ctx [:request :path-info])]
-                   (if-let [transactor (get-stored-function
-                                        name
-                                        :transactor)]
-                     {:status :success
-                      :message :transactor-retrieved
-                      :details transactor}
-                     {:status :failure
-                      :message :transactor-not-found})))}
-              :post
-              {:consumes #{"application/json"}
-               :produces "application/json"
-               :response
-               (fn [ctx]
-                 (let [name (get-in ctx [:request])
-                       body (:body ctx)]
-                   (update-transactor! name body)))}}}))

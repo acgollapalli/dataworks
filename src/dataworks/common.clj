@@ -1,11 +1,13 @@
 (ns dataworks.common
   (:require
    [clojure.string :as string]
+   [clojure.pprint :refer [pprint] :as p]
    [crux.api :as crux]
    [dataworks.db.app-db :refer [app-db]]))
 
 (defmacro ->?
-  "A utility function for validation of data and transactions
+  "The Validation Macro:
+   A utility function for validation of data and transactions
    Like the threading macro (->), except after each function,
    it looks to see whether the function returned a map with
    the key :status and the value :faiure. If the function did
@@ -42,7 +44,9 @@
   [param function-type]
   (keyword
    (stringify-keyword function-type)
-   param))
+   (if (keyword? param)
+     (stringify-keyword param)
+     param)))
 
 (defn generate-message
   "Lets you insert a keyword into a string, then turn
@@ -54,6 +58,60 @@
   (keyword
    (string/replace
     message #"%" (stringify-keyword key))))
+
+(defmacro if-vector-first
+  "Input: params
+   Output: (function params)
+   OR
+   Input: [params & others]
+   Output [(function params) & others]
+   Requires functions to be named functions. Naming it
+   using clojure.core/let seems to work.
+   Uses the validation macro (->?), so if your
+   function returns a a map with :status :failure
+   It will return the map instead of
+   [(function params) & others]"
+  [params function expression]
+  `(if (vector? ~params)
+     (let [~'new (first ~params)
+           ~'others (rest ~params)
+           ~'my-conj #(into [] (conj ~'others %))]
+       (->? ~'new
+            ~function
+            ~'my-conj))
+     ~expression))
+
+(defmacro if-vector-conj
+  "Input: params
+   Output: [params (function params)]
+   OR
+   Input: [params & others]
+   Output [(function params) & others]
+   Requires functions to be named functions. Naming it
+   using clojure.core/let seems to work.
+   Uses the validation macro (->?), so if your
+   function returns a a map with :status :failure
+   It will return the map instead of
+   [(function params) & others]"
+  [params function expression]
+  `(if (vector? ~params)
+     (let [~'new (first ~params)
+           ~'others (rest ~params)
+           ~'my-conj #(into []
+                            (reverse
+                             (conj
+                              (reverse
+                               ~params)
+                              %)))]
+       (->? ~'new
+            ~function
+            ~'my-conj))
+     (let [~'result ~expression
+           ~'status (:status ~'result)]
+       (if (= ~'status :failure)
+         ~'result
+         (conj [~params] ~'result)))))
+
 
 (defn blank-field?
   "Checks to see whether the specified parameters are blank
@@ -78,11 +136,11 @@
      (if fields
        (let [field (first fields)]
          (println "Checking for null:" field)
-        (if (nil? (field m))
-         {:status :failure
-          :message (generate-message
-                    field "%-must-have-a-value" )}
-         (recur (next fields))) )
+         (if (nil? (field m))
+           {:status :failure
+            :message (generate-message
+                      field "%-must-have-a-value" )}
+           (recur (next fields))) )
        m))))
 
 (defn valid-name?
@@ -150,8 +208,6 @@
   [{:keys [name] :as params} path-name]
   (println "Checking for correct function: "
            path-name "," name)
-  (println params)
-  (println path-name)
   (if name
     (if (= name path-name)
       params
@@ -174,7 +230,15 @@
    and the current stored function for comparison."
   [{:keys [name] :as params} function-type]
   (println "Adding current" function-type ":" name ".")
-  [params (get-stored-function name function-type)])
+  (if-let [current (get-stored-function
+                    name function-type)]
+    [params (get-stored-function name function-type)]
+    {:status :failure
+     :message :stored-function-does-not-exist
+     :details (str "The " (stringify-keyword function-type)
+                   ": " name " doesn't exist yet. "
+                   "You have to create it before you "
+                   "can update it.")}))
 
 (defn has-params?
   "Checks for presence of params in new function. If absent,
@@ -188,7 +252,7 @@
              (not= (:status input) :failure))
       (recur (next params?)
              (let [param (first params?)]
-               (println "Checking for" param ".")
+               (println "Checking for" param)
                (if-not (get params param)
                  [(assoc params
                          param
@@ -212,7 +276,7 @@
              (not= (:status input) :failure))
       (recur (next params?)
              (let [param (first params?)]
-               (println "Checking for" param ".")
+               (println "Checking for" param)
                (if-not (get params param)
                  [(assoc params param
                          ((keyword
@@ -227,35 +291,37 @@
                      [parsed current-function]))) ))
       input)))
 
-(defn general-valid-update?
+(defn valid-update?
   "Checks if any of the params? have been changed from
    the current stored function. If they have, then we
    return the params map. If they haven't, then we
    return the failure map"
   [[params current-function] function-type & params?]
   (println "Checking if valid update.")
-  (if (every? #(= (% params)
-                  ((get-entity-param % function-type)
-                   current-function))
-              params?)
+  (if ( every? #(= (get params %)
+                   (get current-function
+                        (get-entity-param % function-type)))
+       params?)
     {:status :failure
      :message (generate-message function-type
                                 "no-change-from-existing-%")}
-    params))
+    [params current-function]))
 
-(defn general-added-to-db?
+(defn added-to-db?
   [params db-fy]
   (println "adding-to-db")
   (let [db-fn (db-fy (first params))
-        success [db-fn (last params)]
-        failure {:status :failure
-                 :message :db-failed-to-update}]
-    (if (let [tx (cond (> 3 (count params))
-                       [:crux.tx/put db-fn]
-                       :else
-                       [:crux.tx/cas db-fn
-                        (second params)])]
-          (println tx)
-          (crux/submit-tx app-db [tx]))
+        success [db-fn (last params)]]
+    (try
+      (let [tx (cond (> 3  (count params))
+                     [:crux.tx/put db-fn]
+                     :else
+                     [:crux.tx/cas db-fn
+                      (second params)])]
+        (crux/await-tx app-db
+                       (crux/submit-tx app-db [tx])))
       success
-      failure)))
+      (catch Exception e
+        {:status :failure
+         :message :db-failed-to-update
+         :details (.getMessage e)}))))
