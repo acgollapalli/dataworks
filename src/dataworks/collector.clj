@@ -3,12 +3,16 @@
    [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
    [dataworks.authentication :as auth]
-   [dataworks.db.app-db :refer [app-db]]
+   [dataworks.db.app-db :refer [app-db
+                                get-stored-function
+                                get-stored-functions
+                                add-current-stored-function
+                                function-already-exists?
+                                added-to-db?]]
    [dataworks.collectors :refer [collector-ns]]
    [dataworks.common :refer :all]
    [mount.core :refer [defstate] :as mount]
-   [yada.yada :refer [as-resource] :as yada]
-   [bidi.bidi :as bidi]))
+   [yada.yada :refer [as-resource] :as yada]))
 
 ;; A collector does a thing when an endpoint is called.
 ;; It's effectively a yada resource and a path.
@@ -78,33 +82,33 @@
 (defn evalidate
   "validates, sanitizes, and evaluates the resource map from db
    CURRENTLY UNSAFE (but necessary)"
-  [{:keys [resource]:as params}]
-
+  [params]
   (if-vector-conj params
-    evalidate
+    "params"
     (binding [*ns* collector-ns]
-      (println "Evalidating.")
-      (try (yada/resource (eval resource))
+      (println "Evalidating" (:collector/name params))
+      (try (yada/resource (eval (:collector/resource params)))
            (catch Exception e {:status :failure
                              :message :unable-to-evalidate-resource
                              :details (.getMessage e)})))))
 
-(defn db-fy [{:keys [name resource path] :as params}]
+(defn db-fy
+  [params]
   (if-vector-first params
     db-fy
-    (do
-      {:crux.db/id (keyword "collector" name)
-       :collector/name (keyword name)
-       :collector/resource resource
-       :collector/path path
-       :stored-function/type :collector})))
+    {:crux.db/id (keyword "collector"
+                          (:name params))
+     :collector/name (keyword (:name params))
+     :collector/resource (:resource params)
+     :collector/path (:path params)
+     :stored-function/type :collector}))
 
 (defn add-collector!
   ([{:collector/keys [resource] :as collector}]
-   (if-let [evald-resource (evalidate resource)]
-     (add-collector! collector evald-resource)))
+   (if-let [evald-resource (evalidate collector)]
+     (apply add-collector! evald-resource)))
   ([{:collector/keys [path name] :as collector} evald-resource]
-   (println "Adding collector!")
+   (println "Adding collector!" name)
    (dosync
     (swap! resource-map (fn [old-map]
                           (assoc old-map name evald-resource)))
@@ -119,7 +123,7 @@
 
 (defn start-collectors! []
   (println "Starting Collectors")
-  (let [colls (get-stored-functions :collectors)
+  (let [colls (get-stored-functions :collector)
         status (map add-collector! colls)]
     (if (every? #(= (:status %) :success) status)
       (println "Started Collectors!")
@@ -134,8 +138,9 @@
        (parseable? :resource)
        (function-already-exists? :collector)
        other-collector-with-path?
+       db-fy
        evalidate
-       (added-to-db? db-fy)
+       added-to-db?
        apply-collector!))
 
 (defn update-collector! [name params]
@@ -146,8 +151,9 @@
        (has-parsed-params? :collector :resource)
        (valid-update? :collector :path :resource)
        valid-path?
+       db-fy
        evalidate
-       (added-to-db? db-fy)
+       added-to-db?
        apply-collector!))
 
 (defstate collector-state
@@ -156,60 +162,3 @@
   :stop
   (dosync (reset! atomic-routes {})
           (reset! resource-map {})))
-
-(def user-sub
-  (fn [ctx]
-    (let [path-info (get-in ctx [:request :path-info])]
-      (when-let [path (bidi/match-route
-                       ["" @atomic-routes] path-info)]
-        (@resource-map (:handler path))))))
-
-(def user
-  (yada/resource
-   {:id :user
-    :path-info? true
-    :sub-resource user-sub}))
-
-;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(def collectors
-  (yada/resource
-   {:id :collectors
-    :description "this is the resource that returns all collector documents"
-    ;;:authentication auth/dev-authentication
-    ;;:authorization auth/dev-authorization
-    :methods {:get {:response
-                    (fn [ctx]
-                      (get-stored-functions :collectors))
-                    :produces "application/json"}
-              :post
-              {:consumes #{"application/json"}
-               :produces "application/json"
-               :response
-               (fn [ctx]
-                 (println "Received Collector Creation Request.")
-                 (let [body (:body ctx)]
-                   (create-collector! body)))}}}))
-
-;; TODO ADD AUTHENTICATION!!!!!!!!!!!!!!!!!1111111111111
-(def collector
-  (yada/resource
-   {:id :collector
-    :description "resource for individual collector"
-    ;;:parameters {:path {:id String}} ;; do I need plurumatic's schema thing?
-    ;;:authentication auth/dev-authentication
-    ;;:authorization auth/dev-authorization
-    :path-info? true
-    :methods {:get
-              {:produces "application/json"
-               :response
-               (fn [ctx]
-                 (let [name (get-in ctx [:request :path-info])]
-                   (get-stored-function name :collector)))}
-              :post
-              {:consumes #{"application/json"}
-               :produces "application/json"
-               :response
-               (fn [ctx]
-                 (let [name (get-in ctx [:request :path-info])
-                       body (:body ctx)]
-                   (update-collector! name body)))}}}))

@@ -1,29 +1,32 @@
 (ns dataworks.resource
   (:require
    [bidi.bidi :as bidi]
+   [clojure.pprint :refer [pprint] :as p]
    [dataworks.common :refer :all]
    [dataworks.authentication :as auth]
+   [dataworks.db.app-db :refer [get-stored-function
+                                get-stored-functions]]
    [dataworks.collector :refer [create-collector!
                                 update-collector!
                                 atomic-routes
                                 resource-map]]
-   [dataworks.internal :refer [create-internal!
-                               update-internal!]]
+   ;;[dataworks.internal :refer [create-internal!
+   ;;                            update-internal!]]
    [dataworks.transactor :refer [create-transactor!
                                update-transactor!]]
-   [yada.yada :refer [resource]]))
+   [yada.yada :refer [resource as-resource]]))
 
 (defn create! [function-type body]
   ((function-type
    {:collector create-collector!
-    :internal create-internal!
+;;    :internal create-internal!
     :transactor create-transactor!})
    body))
 
 (defn update! [function-type name body]
   ((function-type
    {:collector update-collector!
-    :internal update-internal!
+ ;;   :internal update-internal!
     :transactor update-transactor!})
    name
    body))
@@ -53,9 +56,9 @@
    {:id (get-entity-param function-type "update")
     :description (str "resource for existing individual "
                       (stringify-keyword function-type) "s")
-    :parameters {:path {:id String}} ;; do I need plurumatic's schema thing?
     ;;:authentication auth/dev-authentication
     ;;:authorization auth/dev-authorization
+    :path-info? true
     :methods {:get
               {:produces "application/json"
                :response
@@ -74,9 +77,10 @@
 (def user-sub
   (fn [ctx]
     (let [path-info (get-in ctx [:request :path-info])]
-      (when-let [path (bidi/match-route
+      (if-let [path (bidi/match-route
                        ["" @atomic-routes] path-info)]
-        (@resource-map (:handler path))))))
+        (@resource-map (:handler path))
+        (as-resource nil)))))
 
 (def user-resource
   (resource

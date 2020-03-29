@@ -1,6 +1,13 @@
 (ns dataworks.internals
   (:require
-   [dataworks.db.user-db :refer [user-db]]
+   [dataworks.db.user-db :refer [user-db
+                                 submit-tx
+                                 query
+                                 entity]]
+   [dataworks.common :refer [->? read-string
+                             stringify-keyword
+                             if-vector-first
+                             if-vector-conj]]
    [cheshire.core :as cheshire]
    [crux.api :as crux]
    [dataworks.transactor :refer [transact!]]

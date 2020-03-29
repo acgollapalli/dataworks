@@ -34,9 +34,9 @@
                   :weeks, :months, :years)
              keyword indicating never (:never)
 
-  WARNING: Currently bad inputs don't produce exceptions, but just return nil.
-           This is because I haven't figured out how to handle typed polymorphism
-           in Clojure yet."
+  WARNING: Currently bad inputs don't produce exceptions, but
+           just return nil. This is because I haven't figured
+           out how to handle typed polymorphism in Clojure yet."
   ([time?] (consume-time (t/now) time?))
   ([now time?]
    (let [literal-time? (try (read-string time?)

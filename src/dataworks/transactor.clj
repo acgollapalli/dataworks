@@ -1,17 +1,16 @@
 (ns dataworks.transactor
   (:require
-   [cheshire.core :as cheshire]
-   [clj-http.client :as client]
    [clojure.core.async :refer [go] :as async]
-   [clojure.pprint :refer [pprint] :as p]
-   [crux.api :as crux]
-   [dataworks.db.app-db :refer [app-db]]
+   [clojure.pprint :refer [pprint]]
+   [dataworks.db.app-db :refer [get-stored-function
+                                get-stored-functions
+                                add-current-stored-function
+                                function-already-exists?
+                                added-to-db?]]
    [dataworks.authentication :as auth]
    [dataworks.common :refer :all]
    [dataworks.transactors :refer [transactor-ns]]
-   [mount.core :refer [defstate] :as mount]
-   [tick.alpha.api :as tick]
-   [yada.yada :refer [as-resource] :as yada]))
+   [mount.core :refer [defstate] :as mount]))
 
 ;; A transactor does a thing when called.
 ;; A transactor is a function, though inherently not a pure one.
@@ -27,7 +26,7 @@
   (atom {}))
 
 ;; TODO Add validation here.
-(defn evals? [{:keys [name function] :as params}]
+(defn evals? [{:transactor/keys [name function] :as params}]
   (println "evalidating" name)
   (binding [*ns* transactor-ns]
     (try (eval function)
@@ -44,15 +43,15 @@
 
 (defn evalidate [params]
   (if-vector-conj params
-    evalidate
+    "params"
     (->? params
          evals?
          function?)))
 
 (defn add-transactor!
   ([{:transactor/keys [name function] :as params}]
-   (if-let [f (evalidate function)]
-     (add-transactor! params f)))
+   (if-let [f (evalidate params)]
+     (apply add-transactor! f)))
   ([{:transactor/keys [name] :as params} f]
    (swap! transactor-map #(assoc % (keyword name) f))
    {:status :success
@@ -63,15 +62,13 @@
   (apply add-transactor! params))
 
 (defn db-fy
-  ([{:keys [name function]}]
-   {:crux.db/id (keyword "transactor" name)
-    :transactor/name (keyword name)
-    :transactor/func function
-    :stored-function/type :transactor})
-  ([path-name {:keys [name function] :as params}]
-   (if name
-     (db-fy params)
-     (db-fy (assoc params :name path-name)))))
+  [params]
+  (if-vector-first params
+    db-fy
+    {:crux.db/id (keyword "transactor" (:name params))
+     :transactor/name (keyword (:name params))
+     :transactor/function (:function params)
+     :stored-function/type :transactor}))
 
 (defn create-transactor! [transactor]
   (->? transactor
@@ -79,8 +76,9 @@
        valid-name?
        (parseable? :function)
        (function-already-exists? :transactor)
+       db-fy
        evalidate
-       (added-to-db? db-fy)
+       added-to-db?
        apply-transactor!))
 
 (defn update-transactor! [path-name transactor]
@@ -91,16 +89,16 @@
        (add-current-stored-function :transactor)
        (has-params? :transactor :name)
        (valid-update? :transactor :function)
+       db-fy
        evalidate
-       (added-to-db? db-fy)
+       added-to-db?
        apply-transactor!))
 
 (defn start-transactors! []
   (do (println "Starting Transactors!")
       (let [trs (get-stored-functions :transactor)
             status (map add-transactor! trs)]
-        (if (= (count trs)
-               (count @transactor-map))
+        (if (every? #(= (:status %) :success) status)
           (println "Transactors Started!")
           (println "Transactors Failed to Start:"
                    (map :name status))))))

@@ -41,6 +41,7 @@
    "#'dataworks.collectors/db"
    "#'dataworks.collector/collector-state"
    "#'dataworks.transactor/transactor-state"
+   "#'dataworks.stream-utils/producers"
    "#'dataworks.core/svr"])
 
 

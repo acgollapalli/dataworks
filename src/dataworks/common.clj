@@ -1,19 +1,18 @@
 (ns dataworks.common
   (:require
    [clojure.string :as string]
-   [clojure.pprint :refer [pprint] :as p]
-   [crux.api :as crux]
-   [dataworks.db.app-db :refer [app-db]]))
+   [clojure.pprint :refer [pprint]]
+   [clojure.edn :as edn]
+   [time-literals.read-write :as time-literals]))
 
 (defmacro ->?
   "The Validation Macro:
-   A utility function for validation of data and transactions
-   Like the threading macro (->), except after each function,
-   it looks to see whether the function returned a map with
-   the key :status and the value :faiure. If the function did
-   return such a map, then the macro returns that same map,
-   other wise the macro passes the result to the next function
-   via the threading macro (->)."
+  A utility function for validation of data and transactions
+  Like the threading macro (->), except after each function, it
+  looks to see whether the function returned a map with the key
+  :status and the value :faiure. If the function did return such
+  a map, then we return that same map, other wise we pass the
+  result to the next function like the threading macro (->)."
   [x & forms]
   (loop [x x
          forms forms]
@@ -26,12 +25,50 @@
                          (-> ~'params ~next-form)))]
         (recur (list status? x) (next forms))))))
 
+(defmacro ->let
+  "Input:
+          (->let
+            (defn plus-2
+              [a]
+              (+ 2 a))
+            (fn [b]
+              (/ (plus-2 b) 3)))
+
+  Output (macroexpansion):
+          (let
+            [plus-2 (fn [a]
+                      (+ 2 a))]
+            (fn [b] (/ (plus-2 b) 3)))
+  The above actually returns a function, Because that's what
+  the macroexpanded form evaluates to. Essentially, it takes
+  every expression but the last that macroexpands to (def name
+  expression) and makes it so that the name and expression are
+  part of a let expression:
+       (let [name expression
+             ...
+             name expression]
+         last-expression)
+  Any expressions (except the last) that don't macroexpand
+  out to (def something expression) are simply thrown out."
+  [& forms]
+  (loop [lets []
+         forms forms]
+    (if (< 1 (count forms))
+      (let [form (first forms)
+            exp-form (macroexpand form)]
+        (if (= (first exp-form)
+               'def)
+          (recur (apply conj lets (rest exp-form))
+                 (next forms))
+          (recur lets (next forms))))
+      `(let ~lets ~(last forms)))))
+
 (defn read-string
   "read-string that reads time-literals and, importantly,
    doesn't evaluate what it reads."
   [string]
-  (clojure.edn/read-string
-   {:readers time-literals.read-write/tags}
+  (edn/read-string
+   {:readers time-literals/tags}
    string))
 
 (defn stringify-keyword
@@ -87,41 +124,48 @@
    OR
    Input: [params & others]
    Output [(function params) & others]
-   Requires functions to be named functions. Naming it
-   using clojure.core/let seems to work.
+   Relies on variable capture to substitute the
+   first of the parameter vector for the parameters
+   field in your function.
    Uses the validation macro (->?), so if your
    function returns a a map with :status :failure
    It will return the map instead of
-   [(function params) & others]"
-  [params function expression]
-  `(if (vector? ~params)
-     (let [~'new (first ~params)
-           ~'others (rest ~params)
-           ~'my-conj #(into []
+   [(function params) & others]
+   "
+  [params quoted-param-variable expression]
+  `(let [~'plist (if (vector? ~params)
+                   ~params
+                   [~params])
+         ~(symbol quoted-param-variable)
+         (if (vector? ~params)
+           (first ~params)
+           ~params)
+         ~'my-conj #(into []
+                          (reverse
+                           (conj
                             (reverse
-                             (conj
-                              (reverse
-                               ~params)
-                              %)))]
-       (->? ~'new
-            ~function
-            ~'my-conj))
-     (let [~'result ~expression
-           ~'status (:status ~'result)]
-       (if (= ~'status :failure)
-         ~'result
-         (conj [~params] ~'result)))))
+                             ~'plist)
+                            %)))]
+       (->? ~expression
+            ~'my-conj)))
 
+
+(defn vec-ify
+  [maybe-coll]
+  (if (coll? maybe-coll)
+    (into [] maybe-coll)
+    [maybe-coll]))
 
 (defn blank-field?
   "Checks to see whether the specified parameters are blank
-   or nil. m must be a map. fields must be keywords."
+   or nil. m must be a map. fields must be keywords. Values
+   must be strings"
   ([m & fields]
    (loop [fields fields]
      (if fields
        (let [field (first fields)]
          (println "Checking for blank:" field)
-         (if (string/blank? (field m))
+         (if (string/blank? (get-in m (vec-ify field)))
            {:status :failure
             :message (generate-message
                       field "%-cannot-be-blank")}
@@ -136,7 +180,7 @@
      (if fields
        (let [field (first fields)]
          (println "Checking for null:" field)
-         (if (nil? (field m))
+         (if (nil? (get-in m (vec-ify field)))
            {:status :failure
             :message (generate-message
                       field "%-must-have-a-value" )}
@@ -174,36 +218,6 @@
             :details (.getMessage e)}))
     params))
 
-(defn get-stored-function
-  ([eid]
-   (let [db (crux/db app-db)]
-     (crux/entity db eid)))
-  ([name function-type]
-   (get-stored-function
-    (get-entity-param name function-type))))
-
-(defn get-stored-functions
-  ([]
-   (map (comp get-stored-function first)
-        (crux/q (crux/db app-db)
-                {:find '[e]
-                 :where [['e :stored-function/type]]})))
-  ([function-type]
-   (map (comp get-stored-function first)
-        (crux/q (crux/db app-db)
-                {:find '[e]
-                 :where [['e :stored-function/type
-                          function-type]]}))))
-
-(defn function-already-exists?
-  [{:keys [name] :as params} function-type]
-  (println "checking for duplicate" name)
-  (if (get-stored-function name function-type)
-    {:status :failure
-     :message (generate-message function-type
-                                "%-already-exists")}
-    params))
-
 (defn updating-correct-function?
   [{:keys [name] :as params} path-name]
   (println "Checking for correct function: "
@@ -220,25 +234,6 @@
             "Best thing is to retire the old function "
             "and create a new one.")})
     (assoc params :name path-name)))
-
-(defn add-current-stored-function
-  "Takes the map received by the endpoints for creation
-   and modification of stored functions and returns a
-   vector containing that map, as well as a map of the
-   current stored function. Useful for threading through
-   functions which require both the new stored function
-   and the current stored function for comparison."
-  [{:keys [name] :as params} function-type]
-  (println "Adding current" function-type ":" name ".")
-  (if-let [current (get-stored-function
-                    name function-type)]
-    [params (get-stored-function name function-type)]
-    {:status :failure
-     :message :stored-function-does-not-exist
-     :details (str "The " (stringify-keyword function-type)
-                   ": " name " doesn't exist yet. "
-                   "You have to create it before you "
-                   "can update it.")}))
 
 (defn has-params?
   "Checks for presence of params in new function. If absent,
@@ -306,22 +301,3 @@
      :message (generate-message function-type
                                 "no-change-from-existing-%")}
     [params current-function]))
-
-(defn added-to-db?
-  [params db-fy]
-  (println "adding-to-db")
-  (let [db-fn (db-fy (first params))
-        success [db-fn (last params)]]
-    (try
-      (let [tx (cond (> 3  (count params))
-                     [:crux.tx/put db-fn]
-                     :else
-                     [:crux.tx/cas db-fn
-                      (second params)])]
-        (crux/await-tx app-db
-                       (crux/submit-tx app-db [tx])))
-      success
-      (catch Exception e
-        {:status :failure
-         :message :db-failed-to-update
-         :details (.getMessage e)}))))

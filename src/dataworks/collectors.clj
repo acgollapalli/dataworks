@@ -1,7 +1,11 @@
 (ns dataworks.collectors
   (:require
    [dataworks.common :refer :all]
-   [dataworks.db.user-db :refer [user-db submit-tx query entity]]
+   [dataworks.db.user-db :refer [user-db
+                                 submit-tx
+                                 query
+                                 entity]]
+   [dataworks.stream-utils :refer [produce!]]
    [dataworks.time-utils :refer [consume-time]]
    [dataworks.transactor :refer [transact!]]
    [crux.api :as crux]
