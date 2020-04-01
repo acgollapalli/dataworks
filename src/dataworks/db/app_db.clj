@@ -14,15 +14,16 @@
     {:crux.kafka/bootstrap-servers "localhost:9092"
      :crux.kafka/tx-topic (str "dataworks-internal."
                                "crux-transaction-log")
-     :crux.kafka/doc-topic "dataworks-internal.crux-docs"}))
+     :crux.kafka/doc-topic "dataworks-internal.crux-docs"
+     :crux.kv/db-dir "internal-data"}))
 
 (defstate app-db
   :start
   (crux/start-node
    (merge
     {:crux.node/topology '[crux.kafka/topology
-                           crux.kv.memdb/kv-store]}
-    (internal-kafka-settings))) ;;r ocksdb can't be used twice
+                           crux.kv.rocksdb/kv-store]}
+    (internal-kafka-settings))) ;;rocksdb can't be used twice
   :stop
   (.close app-db))
 
@@ -109,9 +110,9 @@
                      [:crux.tx/cas
                       (second params)
                       db-fn])]
-        (println tx)
-        (println (crux/await-tx app-db
-                       (crux/submit-tx app-db [tx]))))
+        (crux/await-tx
+         (crux/submit-tx app-db [tx])
+         #time/duration "PT30S"))
       success
       (catch Exception e
         {:status :failure

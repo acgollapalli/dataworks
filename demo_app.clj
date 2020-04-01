@@ -342,11 +342,6 @@
 ;; name is :internal/demo-app because everything is namespaced,
 ;; so this is fine.
 
-;; next-run:
-#time/duration "PT1H"
-;;You get this by running:
-(tick/new-duration 1 :minutes) ;; Don't forget to run pr-string
-                               ;; on it before sending!
 ;; initial-value:
 {:events-checked-once {}}
 
@@ -372,8 +367,8 @@
                                            app)]
             (= timestamp previous-timestamp)))
         wait-a-bit-longer? #(not waiting-too-long? %)
-        it's-been-too-long (filter waiting-too-long)
-        let's-wait-a-bit-longer (filter wait-a-bit-longer)
+        it's-been-too-long (filter waiting-too-long?)
+        let's-wait-a-bit-longer (filter wait-a-bit-longer?)
         text-the-dev (fn [[app timestamp status next-event]]
                        (transact!
                         :text
@@ -396,8 +391,10 @@
               events-to-check)
         {:events-checked-once (check-in-a-minute
                                let's-wait-a-bit-longer
-                               events-to-check)})
-      {:events-checked-once {}})))
+                               events-to-check)
+         :next-run (tick/new-duration 1 :minutes)})
+      {:events-checked-once {}
+       :next-run (tick/new-duration 1 :minutes)})))
 
 
 ;; The Transformer:
@@ -715,111 +712,8 @@
 ;; work?
 
 ;; Let's macroexpand it back out:
-(let*
-    [any-failures? (filter
-                    (fn* [p1__66499#]
-                         (= :failure
-                            (:status p1__66499#))))
-     map-valid (clojure.core/fn
-                 ([params validator & key]
-                  (let [param (if key
-                                (get-in params
-                                        (into [] key))
-                                params)
-                        failures (into [] validator param)]
-                    (if (empty? failures)
-                      params (first failures)))))
-     volume>0? (clojure.core/fn
-                 ([{:keys [volume], :as params}]
-                  (if (and (int? volume)
-                           (< 0 volume))
-                    params
-                    {:status :failure,
-                     :message :volume-must-be-int>0,
-                     :details (str "volume: " volume)})))
-     valid-pickup-cmds? (comp
-                         (map
-                          (fn* [p1__66500#]
-                               (->? p1__66500#
-                                    (missing-field?
-                                     :volume)
-                                    volume>0?
-                                    (blank-field? :supplier
-                                                  :commodity))))
-                         any-failures?)
-     valid-pickups? (comp
-                     (map
-                      (fn* [p1__66501#]
-                           (->? p1__66501#
-                                (blank-field? :shipper)
-                                (map-valid valid-pickup-cmds?
-                                           :commodities))))
-                     any-failures?)
-     drop-cmd-status (comp
-                      (map
-                       (fn* [p1__66502#]
-                            (->? p1__66502#
-                                 (missing-field? :volume)
-                                 volume>0?
-                                 (blank-field? :commodity))))
-                      any-failures?)
-     valid-drops? (comp
-                   (map
-                    (fn* [p1__66503#]
-                         (->? p1__66503#
-                              (blank-field? :site)
-                              (map-valid valid-drop-cmds?
-                                         :commodities))))
-                   any-failures?)
-     status (clojure.core/fn
-              ([order]
-               (->?
-                order
-                (blank-field? :billTo)
-                (missing-field? :pickups :drops)
-                (map-valid valid-pickups? :pickups)
-                (map-valid valid-drops? :drops))))
-     db-fy (clojure.core/fn
-             ([order uuid]
-              (-> order
-                  (clojure.set/rename-keys
-                   {:billTo :order/bill-to,
-                    :pickups :order/pickups,
-                    :drops :order/drops,
-                    :shipper :pickup/shipper,
-                    :site :drop/site,
-                    :commodity :commodity/type,
-                    :volume :commodity/volume,
-                    :supplier :commodity/supplier})
-                  (assoc :crux.db/id
-                         (keyword "order" (str uuid))))))]
-  (fn [order]
-    (let
-        [valid-order? (status order)
-         valid-order (if (and valid-order?
-                              (not= :failure
-                                    (:status valid-order?)))
-                       valid-order?)
-         uuid (if valid-order
-                (java.util.UUID/randomUUID))]
-      (if valid-order
-        (do
-          (submit-tx
-           [[:crux.tx/cas (db-fy valid-order uuid) nil]
-            [:crux.tx/put
-             {:crux.db/id (keyword "order-watcher" (str uuid)),
-              :watcher/watched (keyword "order" (str uuid))}
-             (tick/inst (consume-time
-                         (. java.time.Duration parse
-                            "PT5M")))]])
-          (produce! "tentative-orders"
-                    (assoc valid-order
-                           :dataworks-id (str uuid)))
-          {:status :success,
-           :message :tentative-order-added!,
-           :details valid-order})
-        status))))
-
+;;   (Omitted because it's long and annoying to look at)
+;;
 ;; Looks about right to me!
 
 ;; Most of the data transformation that we right now do through

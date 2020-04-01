@@ -13,9 +13,9 @@
                  [mount "0.1.16"]
                  [tick "0.4.23-alpha"]
                  [buddy/buddy-hashers "1.4.0"]
-                 [juxt/crux-core "20.03-1.8.0-alpha"]
-                 [juxt/crux-kafka "20.03-1.8.0-alpha"]
-                 [juxt/crux-rocksdb "20.03-1.8.0-alpha"]]
+                 [juxt/crux-core "20.04-1.8.1-alpha"]
+                 [juxt/crux-kafka "20.04-1.8.1-alpha"]
+                 [juxt/crux-rocksdb "20.04-1.8.1-alpha"]]
   :main ^:skip-aot dataworks.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

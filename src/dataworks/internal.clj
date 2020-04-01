@@ -1,126 +1,189 @@
 (ns dataworks.internal
   (:require
-   [cheshire.core :as cheshire]
-   [clojure.core.async :refer [go go-loop chan close! alt! timeout] :as async]
+   [clojure.core.async :refer [go go-loop chan close!
+                               alt! timeout <! >!] :as async]
    [clojure.pprint :refer [pprint] :as p]
    [dataworks.authentication :as auth]
    [dataworks.common :refer :all]
    [dataworks.time-utils :refer :all]
-   [dataworks.db.app-db :refer [app-db]]
-   [dataworks.db.user-db :refer [user-db]]
+   [dataworks.heartbeat :as heartbeat]
+   [dataworks.db.app-db :refer :all]
    [dataworks.internals :refer [internal-ns]]
-   [dataworks.transactor :refer [transact!]]
+   [dataworks.stream-utils :refer [consumer-instance
+                                   consume! produce!]]
    [mount.core :refer [defstate] :as mount]
-   [tick.alpha.api :as time]
+   [tick.alpha.api :as tick]
    [yada.yada :refer [as-resource] :as yada]))
 
-;; An internal does a thing, waits a period of time, then does it again.
-;; An internal is a function, though inherently not a pure one.
-;; An internal is a recursive function, which is called upon its return value.
-;; You do not need to tell the function to recur, it is wrapped in a loop
-;; at runtime.
+;; An internal does a thing, waits a period of time, then does
+;; it again. An internal is a function, though inherently not a
+;; pure one. An internal is a recursive function, which is
+;; called upon its return value. You do not need to tell the
+;; function to recur, it is wrapped in a loop at runtime.
 
 ;; An initial value may be specified to start the internal.
 
-;; If an internal returns a map, with the key :next-run and a value of a tick
-;; duration or java instant then the internal will be run after that duration
-;; or at that point in time, other wise, it does so according to the :next-run
-;; specified in the creation of the internal, which can be a duration or an
-;; instant.
+;; If an internal returns a map, with the key :next-run and a
+;; value of a tick duration or java instant then the internal
+;; will be run after that duration or at that point in time,
+;; other wise, it does so according to the :next-run specified
+;; in the creation of the internal, which can be a duration or
+;; an instant.
 
-;; Example:
-;;
-;; POST to app/internal
-;;
-;; {
-;;  "name" : "hourly-text",
-;;  "func" : "(fn [last]
-;;              (do
-;;                (transact! :text
-;;                  (t/format (t/formatter \"yyyy-MM-dd hh:mm:ss\")
-;;                            (t/date-time (t/now))))
-;;                (println (str \"Last run: \" (t/format (t/formatter \"yyyy-MM-dd hh:mm:ss\")
-;;                                                       (t/date-time last))))
-;;                (println (str \"Just run: \" (t/format (t/formatter \"yyyy-MM-dd hh:mm:ss\")
-;;                                                       (t/date-time (t/now)))))
-;;                (t/now)))",                 ;; Return value & the argument for the next loop.
-;;  "next-run" : "(t/new-duration 1 :hours)", ;; Don't include these comments.
-;;  "init" : "(t/now)"                        ;; Initial value for function.
-;; }
+;; Example: TODO
 
 
 (def internal-map
   (atom {}))
 
-(defn evalidate [f]
+(defn evals? [{:internal/keys [name function] :as params}]
+  (println "evalidating" name)
   (binding [*ns* internal-ns]
-    (eval (read-string f))))
+    (try (eval function)
+         (catch Exception e
+           {:status :failure
+            :message :unable-to-evalidate-function
+            :details (.getMessage e)}))))
+
+(defn evalidate [params]
+  (if-vector-conj params
+    "params"
+    (->? params
+         evals?
+         function?
+         one-arg?)))
 
 (defn get-millis [t]
-  (time/millis (time/between (time/now)
+  (tick/millis (tick/between (tick/now)
                              (consume-time t))))
 
-(defn get-internals []
-  (do (println "Getting Internals!")
-      (let [trs (mc/find-maps app-db "internals")]
-        trs)))
+(defn db-fy [params]
+  (if-vector-first params
+    db-fy
+    (let [{:keys [name function init]} params]
+      {:crux.db/id (keyword "internal" name)
+       :internal/name name
+       :internal/function function
+       :internal/init init})))
 
-(defn get-internal [id]
-  (mc/find-one-as-map app-db "internals" {:name (keyword id)}))
-
-(defn new-internal [func millis init]
-  {:channel (chan)
-   :func (fn [init channel]
-           (go-loop [value init]
-             (alt! (if-let [next (:next-run value)]
-                           (timeout (get-millis next))
-                           (timeout millis))
-                   ([] (recur (func value)))
-                   channel :closed)))
-
-   :init init})
-
-(defn add-internal! [{:keys [name func next-run init] :as params}]
-  (do
-    (if-let [{:keys [channel]} ((keyword name) @internal-map)]
-      (close! channel))
-    (swap! internal-map
-           (fn [i-map]
-             (assoc i-map
-                    (keyword name)
-                    (new-internal (evalidate func)
-                                  (get-millis next-run)
-                                  (read-string init)))))
-    (let [{:keys [channel func init]} ((keyword name) @internal-map)]
-      (func init channel))))
-
-(defn create-internal! [{:keys [name func next-run init]}]
-  (if-let [ins (mc/insert-and-return app-db "internals"
-                                     {:name (keyword name)
-                                      :func func
-                                      :next-run next-run
-                                      :init init})]
-      (add-internal! ins)))
-
-(defn update-internal! [id params]
-  (let [update (mc/update app-db "internals"
-                          {:name (keyword id)}
-                          params)]
-    (if (result/acknowledged? update)
+(defn run-next [{:keys [next-run] :as params} channel]
+  (go
       (do
-        (add-internal! params)
-          "success")
-      "failure")))
+        (<! (timeout (get-millis next-run)))
+        (>! channel params))))
+
+(defn create-new-alert
+  [{:keys [next-run] :as params} name]
+  (submit-tx [[:crux.tx/put
+               {:crux.db/id (keyword "internal.alert" name)
+                :alert/name name
+                :alert/params params
+                :responsibility/node heartbeat/node-id}
+               (tick/inst (consume-time next-run))]]))
+
+(defn delete-old-alert [name]
+  (submit-tx [[:crux.tx/delete
+                 (keyword "internal.alert" name)
+                 (tick/inst (tick/now))]]))
+
+(defn check-alerts
+  [name channel]
+  (when-let [alert (entity (keyword "internal.alert" name))]
+    (delete-old-alert name)
+    (go (>! (:alert/params alert)))))
+
+(defn handle-event
+  [param name channel]
+  (fn [{:keys [next-run] :as params}]
+    (delete-old-alert name)
+    (create-new-alert params name)
+    (if (> (get-millis next-run) 100)
+      (run-next params channel))))
+
+(defn new-internal
+  [[{:internal/keys [name ]} function]]
+  {:channel (chan)
+   :function
+   (fn [channel]
+     (go-loop [n 0]
+       (alt! channel ([param]
+                      (when param
+                        (produce!
+                         (str "internal." name)
+                         (function param))
+                        (recur n)))
+             (timeout 1) ([]
+                           (consume!
+                            (consumer-instance
+                             (str "internal." name)
+                             (handle-event name channel)))
+                          (if (>= 10 n)
+                            (do
+                              (check-alerts)
+                              (recur 0))
+                            (recur (inc n)))))))})
+
+(defn add-internal!
+  ([params]
+   (apply add-internal! (evalidate params)))
+  ([{:internal/keys [name init] :as params} function]
+  (if-let [{:keys [channel]} ((keyword name) @internal-map)]
+    (close! channel))
+  (swap! internal-map
+         (fn [i-map]
+           (assoc i-map
+                  (keyword name)
+                  (new-internal params function))))
+  (let [{:keys [channel function]}
+        (get @internal-map (keyword name))]
+    (function channel))
+   params))
+
+(defn apply-internal! [params]
+  (apply add-internal! params))
+
+(defn init-internal!
+  [{:internal/keys [init] :as params}]
+  (let [{:keys [channel]} (get @internal-map (keyword name))]
+    (go (>! channel init)))
+  {:status :success
+   :message :internal-added
+   :details params})
+
+(defn create-internal! [internal]
+  (->? internal
+       (blank-field? :name :function :init)
+       valid-name?
+       (parseable? :function :init)
+       (function-already-exists? :internal)
+       db-fy
+       evalidate
+       added-to-db?
+       apply-internal!
+       init-internal!))
+
+(defn update-internal! [path-name internal]
+  (->? internal
+       (updating-correct-function? path-name)
+       (blank-field? :function :init)
+       (parseable? :function :init)
+       (add-current-stored-function :internal)
+       (has-params? :internal:name :init)
+       (valid-update? :internal :function)
+       db-fy
+       evalidate
+       added-to-db?
+       apply-internal!
+       init-internal!))
 
 (defn start-internals! []
-  (do
-    (println "Starting Internals!")
-    (let [nts (get-internals)
-          started-nts (map add-internal! nts)]
-      (if (= (count nts)
-             (count started-nts))
-        (println "Internals Started!")
-        (println "Internals Failed to Start.")))))
+  (do (println "Starting Internals!")
+      (let [trs (get-stored-functions :internal)
+            status (map add-internal! trs)]
+        (if (every? #(= (:status %) :success) status)
+          (println "Internals Started!")
+          (println "Internals Failed to Start:"
+                   (map :name status))))))
 
 (defstate internal-state
   :start

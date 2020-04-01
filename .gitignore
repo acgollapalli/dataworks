@@ -14,3 +14,5 @@ pom.xml.asc
 /.clj-kondo/
 /data/
 /*.log
+/internal-data/
+/user-data/

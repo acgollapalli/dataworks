@@ -1,6 +1,27 @@
 {
- :app-db-uri "mongodb://127.0.0.1:27017/Dataworks_AppData"
- :user-db-uri "mongodb://127.0.0.1:27017/Dataworks_UserData"
- :jwt-secret "This secret ain't a secret, so don't use it, ya dog faced pony soldier. -- Joe Biden, probably."
+ :jwt-secret "This secret ain't a secret, so don't use it, ya dog faced pony soldier. --Joe Biden, probably."
  :port 3000
+{:crux.kafka/tx-topic "dataworks-internal.crux-transaction-log"
+  :crux.kafka/doc-topic "dataworks-internal.crux-docs"
+  :crux.kafka/replication-factor 3
+  :crux.kafka/doc-partitions 6
+  :crux.kv/db-dir "internal-data"
+  :crux.kafka/kafka-properties-map
+  {"bootstrap.servers" "<YOUR KAFKA BROKER>"
+   "security.protocol" "SASL_SSL"
+   "sasl.jaas.config" "org.apache.kafka.common.security.plain.PlainLoginModule   required username=\"<YOUR PASSWORD>\"   password=\"<YOUR PASSWORD>\"; "
+   "ssl.endpoint.identification.algorithm" "https "
+   "sasl.mechanism" "PLAIN "}}
+ :kafka-settings
+ {:crux.kafka/tx-topic "dataworks.crux-transaction-log"
+  :crux.kafka/doc-topic "dataworks.crux-docs"
+  :crux.kafka/replication-factor 3
+  :crux.kafka/doc-partitions 6
+  :crux.kv/db-dir "data"
+  :crux.kafka/kafka-properties-map
+  {"bootstrap.servers" "<YOUR KAFKA BROKER>"
+   "security.protocol" "SASL_SSL"
+   "sasl.jaas.config" "org.apache.kafka.common.security.plain.PlainLoginModule   required username=\"<YOUR USERNAME>\"   password=\"<YOUR PASSWORD>\"; "
+   "ssl.endpoint.identification.algorithm" "https"
+   "sasl.mechanism" "PLAIN"}}
  }

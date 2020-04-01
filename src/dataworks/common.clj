@@ -296,3 +296,22 @@
      :message (generate-message function-type
                                 "no-change-from-existing-%")}
     [params current-function]))
+
+(defn function? [function]
+  (if (fn? function)
+    function
+    {:status :failure
+     :message :function-param-does-not-evaluate-to-function}))
+
+;; Thanks whocaresanyway
+(defn arg-count [f]
+  (let [m (first (.getDeclaredMethods (class f)))
+        p (.getParameterTypes m)]
+    (alength p)))
+
+(defn one-arg? [function]
+  (if (= 1
+         (arg-count function))
+    function
+    {:status :failure
+     :message :function-param-must-have-single-arg}))

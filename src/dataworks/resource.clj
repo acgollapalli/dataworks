@@ -10,23 +10,23 @@
                                 update-collector!
                                 atomic-routes
                                 resource-map]]
-   ;;[dataworks.internal :refer [create-internal!
-   ;;                            update-internal!]]
+   [dataworks.internal :refer [create-internal!
+                               update-internal!]]
    [dataworks.transactor :refer [create-transactor!
-                               update-transactor!]]
+                                 update-transactor!]]
    [yada.yada :refer [resource as-resource]]))
 
 (defn create! [function-type body]
   ((function-type
    {:collector create-collector!
-;;    :internal create-internal!
+    :internal create-internal!
     :transactor create-transactor!})
    body))
 
 (defn update! [function-type name body]
   ((function-type
    {:collector update-collector!
- ;;   :internal update-internal!
+    :internal update-internal!
     :transactor update-transactor!})
    name
    body))

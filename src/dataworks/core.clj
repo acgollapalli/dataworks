@@ -41,7 +41,10 @@
    "#'dataworks.collectors/db"
    "#'dataworks.collector/collector-state"
    "#'dataworks.transactor/transactor-state"
+   "#'dataworks.internal/internal-state"
    "#'dataworks.stream-utils/producers"
+   "#'dataworks.heartbeat/heartbeat-chan"
+;;   "#'dataworks.heartbeat/heartbeat"
    "#'dataworks.core/svr"])
 
 
@@ -60,4 +63,8 @@
   [& args]
   (do
     (mount/start)
-    (println "Dio says: Herro Warrudo!!")))
+    (print "Herro")
+    (print " . ")
+    (print " . ")
+    (print " . ")
+    (println "ZA WARRUDO!!!!!")))

@@ -35,12 +35,6 @@
             :message :unable-to-evalidate-function
             :details (.getMessage e)}))))
 
-(defn function? [function]
-  (if (fn? function)
-    function
-    {:status :failure
-     :message :function-param-does-not-evaluate-to-function}))
-
 (defn evalidate [params]
   (if-vector-conj params
     "params"

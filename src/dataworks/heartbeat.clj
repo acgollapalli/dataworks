@@ -32,18 +32,24 @@
 
 (defn check-in []
   (let [app-beat (entity :dataworks/heartbeat)]
-     (submit-tx [[:crux.db/cas
+    (if app-beat
+      (submit-tx [[:crux.tx/cas
                  app-beat
                  (update app-beat
                          :dataworks/nodes
-                         #(conj % node-id))]])))
+                         #(conj % node-id))]])
+      (submit-tx [[:crux.tx/put
+                   {:crux.db/id :dataworks/heartbeat
+                    :dataworks/nodes [node-id]
+                    :dataworks/started (tick/inst
+                                        (tick/now))}]]))))
 
 (defn send-heartbeat []
-   (submit-tx [[:crux.db/put
+   (submit-tx [[:crux.tx/put
                  {:crux.db/id node-id
                   :node/status :up
                   :node/heartbeat heartbeat-id}]
-                [:crux.db/put
+                [:crux.tx/put
                  {:crux.db/id heartbeat-id}
                  (tick/inst
                   (tick/+ (tick/now)
@@ -81,8 +87,7 @@
            :where [responsibility :resposibility/node sibling]})))
 
 (defn check-on-siblings []
-  (let
-      [nodes (query '{:find [nodes]
+  (let [nodes (query '{:find [nodes]
                      :where [[e :crux.db/id :dataworks/heartbeat]
                              [e :dataworks/nodes nodes]]})]
     (if-let [index (get
@@ -113,16 +118,13 @@
                 (contains? missing-siblings sister)
                 (contains? missing-siblings sister's-husband)
                 (contains? missing-siblings brother-in-law))
-           (take-over-for-sibling sister's-husband))))
-      (do (check-in)
-          (crux/sync app-db)
-          (check-on-siblings)))))
+           (take-over-for-sibling sister's-husband)))))))
 
 (defn enter-the-heartbeat
   ;; WhoOoah. I'm gonna take my chances right now
   "Sends heartbeat and checks on siblings"
   []
-  (crux/sync app-db) ;; synchronize the database
+  (crux/sync app-db) ;; Sync db
   (send-heartbeat)
   (check-on-siblings))
 
@@ -134,12 +136,16 @@
 
 (defstate heartbeat
   :start
-  (go-loop []
-    (alt!
-      heartbeat-chan :stopped
-      (timeout heartbeat-delay)
-      ([]
-       (enter-the-heartbeat)
-       (recur))))
+  (do
+    (println "Starting Heartbeat!")
+    (check-in)
+    (enter-the-heartbeat)
+    (go-loop []
+      (alt!
+        heartbeat-chan :stopped
+        (timeout heartbeat-delay)
+        ([]
+         (enter-the-heartbeat)
+         (recur)))))
   :stop
   (go (>! heartbeat-chan :stop)))
