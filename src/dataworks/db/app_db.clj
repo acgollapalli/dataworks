@@ -21,10 +21,32 @@
   (crux/start-node
    (merge
     {:crux.node/topology '[crux.kafka/topology
-                           crux.kv.memdb/kv-store]} ;; can't rocksdb twice
-    (internal-kafka-settings)))
+                           crux.kv.memdb/kv-store]}
+    (internal-kafka-settings))) ;;r ocksdb can't be used twice
   :stop
   (.close app-db))
+
+(defn submit-tx
+  "Shorthand for crux/submit-tx, using app-db"
+  [transactions]
+  (crux/submit-tx app-db transactions))
+
+(defn query
+  "Shorthand for crux/q using app-db"
+  ([query]
+   (crux/q (crux/db app-db) query))
+  ([valid-time query]
+   (crux/q (crux/db app-db valid-time) query))
+  ([valid-time transaction-time query]
+   (crux/q (crux/db app-db
+                    valid-time
+                    transaction-time)
+           query)))
+
+(defn entity
+  "Shorthand for crux/entity using app-db"
+  [entity-id]
+  (crux/entity (crux/db app-db) entity-id))
 
 (defn get-stored-function
   ([eid]

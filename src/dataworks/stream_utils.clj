@@ -17,16 +17,14 @@
 ;;     (string or set of strings)
 ;;   Function; What you want to do with what you consume.
 
-(defn kafka-uri []
-  (if-let [servers (-> "config.edn"
+(defn kafka-settings []
+  (if-let [settings(-> "config.edn"
                        slurp
                        read-string
                        :kafka-settings
-                       :crux.kafka/bootstrap-servers)]
-    (if (vector? servers)
-      (first servers)
-      servers)
-    "localhost:9092"))
+                       :crux.kafka/kafka-properties-map)]
+      settings
+      {"bootstrap.servers" "localhost:9092"}))
 
 ;; {:<name> {:instance <instance> :function <function>}}
 (def consumers
@@ -35,39 +33,41 @@
 (defn consumer-instance
   "Create the consumer instance to consume
   from the provided kafka topic name"
-  [consumer-topic bootstrap-server name]
+  [consumer-topic name]
   (let [consumer-props
-        {"bootstrap.servers", bootstrap-server
-         "group.id",          (str "dataworks/" name)
-         "key.deserializer",  EdnDeserializer
-         "value.deserializer", EdnDeserializer
-         "auto.offset.reset", "earliest"
-         "enable.auto.commit", "true"}]
+        (merge
+         (kafka-settings)
+         {"group.id" (str "dataworks/" name)
+          "key.deserializer" EdnDeserializer
+          "value.deserializer" EdnDeserializer
+          "auto.offset.reset" "earliest"
+          "enable.auto.commit" "true"})]
     (doto (KafkaConsumer. consumer-props)
       (.subscribe [consumer-topic]))))
 
-;; using the modified edn/read-string from dataworks.common
-(defn consumer
+
+;; You need to call this in a while-loop or go-loop.
+;; go-loop is preferable.
+(defn consume!
   [instance function]
   (let [records (.poll instance #time/duration "PT0.1S")]
     (doseq [record records]
-      (function record)))
-  (.commitAsync instance))
+      (function record))))
 
 (defn producer-instance
   "Create the kafka producer to send edn"
-  [bootstrap-server]
-  (let [producer-props {"value.serializer" EdnSerializer
-                        "key.serializer" EdnSerializer
-                        "bootstrap.servers" bootstrap-server}]
+  []
+  (let [producer-props (merge (kafka-settings)
+                               {"value.serializer" EdnSerializer
+                                "key.serializer" EdnSerializer})]
     (KafkaProducer. producer-props)))
 
 (defn json-producer-instance
   "Create the kafka producer to send json"
-  [bootstrap-server]
-  (let [producer-props {"value.serializer" JsonSerializer
-                        "key.serializer" JsonSerializer
-                        "bootstrap.servers" bootstrap-server}]
+  []
+  (let [producer-props (merge (kafka-settings)
+                              {"value.serializer" JsonSerializer
+                               "key.serializer" JsonSerializer})]
     (KafkaProducer. producer-props)))
 
 (def producers
@@ -79,8 +79,8 @@
 ;; that's what we do!
 (defstate producers
   :start
-  {:edn (producer-instance (kafka-uri))
-   :json (json-producer-instance (kafka-uri))}
+  {:edn (producer-instance)
+   :json (json-producer-instance)}
   :stop
   (map #(.close (last %)) producers))
 

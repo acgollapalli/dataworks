@@ -57,16 +57,8 @@
     (eval (read-string f))))
 
 (defn get-millis [t]
-  (if (pos-int? t)
-    t
-    (if (string? t)
-      (get-millis (evalidate t))
-      (if (pos-int? t)
-          t
-          (if (= java.time.Duration (type t))
-            (time/millis t)
-            (if (= java.time.Instant (type t))
-              (time/millis (time/between (time/now) t)))))))) ;; TODO add proper error handling
+  (time/millis (time/between (time/now)
+                             (consume-time t))))
 
 (defn get-internals []
   (do (println "Getting Internals!")
@@ -98,7 +90,7 @@
                     (keyword name)
                     (new-internal (evalidate func)
                                   (get-millis next-run)
-                                  (evalidate init)))))
+                                  (read-string init)))))
     (let [{:keys [channel func init]} ((keyword name) @internal-map)]
       (func init channel))))
 

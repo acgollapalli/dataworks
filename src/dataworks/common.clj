@@ -102,12 +102,11 @@
    OR
    Input: [params & others]
    Output [(function params) & others]
-   Requires functions to be named functions. Naming it
-   using clojure.core/let seems to work.
-   Uses the validation macro (->?), so if your
-   function returns a a map with :status :failure
-   It will return the map instead of
-   [(function params) & others]"
+   Requires functions to be named functions. Naming the function
+   using (let [function expression] (if-vector-first ...)) seems
+   to work.
+   Uses the validation macro (->?), so if your function returns
+   a map with {:status :failure} it will return the map instead."
   [params function expression]
   `(if (vector? ~params)
      (let [~'new (first ~params)
@@ -124,14 +123,10 @@
    OR
    Input: [params & others]
    Output [(function params) & others]
-   Relies on variable capture to substitute the
-   first of the parameter vector for the parameters
-   field in your function.
-   Uses the validation macro (->?), so if your
-   function returns a a map with :status :failure
-   It will return the map instead of
-   [(function params) & others]
-   "
+   Relies on variable capture to substitute the first of the
+   parameter vector for the parameters field in your function.
+   Uses the validation macro (->?), so if your function returns
+   a map with {:status :failure} it will return the map instead."
   [params quoted-param-variable expression]
   `(let [~'plist (if (vector? ~params)
                    ~params
