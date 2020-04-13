@@ -1,5 +1,7 @@
 (ns dataworks.collectors
   (:require
+   [dataworks.authentication :refer [authenticate
+                                     authorize]]
    [dataworks.common :refer :all]
    [dataworks.db.user-db :refer [user-db
                                  submit-tx
@@ -11,7 +13,8 @@
    [crux.api :as crux]
    [mount.core :refer [defstate] :as mount]
    [tick.alpha.api :as tick]
-   [yada.yada :refer [as-resource] :as yada]))
+   [yada.yada :refer [as-resource] :as yada]
+   [schema.core :refer [defschema] :as schema]))
 
 
 (defstate db

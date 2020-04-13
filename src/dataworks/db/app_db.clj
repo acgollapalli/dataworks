@@ -3,6 +3,7 @@
    [clojure.java.io :as io]
    [dataworks.common :refer :all]
    [crux.api :as crux]
+   [tick.alpha.api :as tick]
    [mount.core :refer [defstate]]))
 
 (defn internal-kafka-settings []
@@ -110,7 +111,7 @@
                      [:crux.tx/cas
                       (second params)
                       db-fn])]
-        (crux/await-tx
+        (crux/await-tx app-db
          (crux/submit-tx app-db [tx])
          #time/duration "PT30S"))
       success

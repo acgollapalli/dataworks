@@ -19,7 +19,8 @@
       "transactor" (creation-resource :transactor)
       "transactor/" (update-resource :transactor)
       "register" auth/register
-      "login" auth/login}]
+      "login" auth/login
+      "admin/user-roles/" auth/admin-user-roles}]
     ["user/" user-resource]
     [true (as-resource nil)]]])
 
@@ -62,9 +63,9 @@
   "I don't do a whole lot ... yet."
   [& args]
   (do
-    (mount/start)
+    (go)
     (print "Herro")
-    (print " . ")
-    (print " . ")
+    (print " .")
+    (print " .")
     (print " . ")
     (println "ZA WARRUDO!!!!!")))

@@ -25,6 +25,24 @@
                          (-> ~'params ~next-form)))]
         (recur (list status? x) (next forms))))))
 
+(defn request-status
+  "It was such a common hassle to have to manually write
+   out maps like {:status :failure} or {:status :success}
+   that I wrote out this and the following two functions."
+  ([status message]
+   {:status status
+    :message message})
+  ([status message details]
+   (assoc (request-status status message)
+          :details
+          details)))
+
+(def failure
+  (partial request-status :failure))
+
+(def succcess
+  (partial request-status :success))
+
 (defmacro ->let
   "Input:
           (->let

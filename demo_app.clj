@@ -115,6 +115,8 @@
 ;; are provided:
 (ns dataworks.collectors
   (:require
+   [dataworks.authentication :refer [authenticate
+                                     authorize]]
    [dataworks.common :refer :all]
    [dataworks.db.user-db :refer [user-db
                                  submit-tx
@@ -179,12 +181,13 @@
            alert-event {:crux.db/id (keyword app "alert")
                         :app/name (keyword app)
                         :alert/timestamp now}]
-       (submit-tx [[:crux.tx/put tx-event]
-                   (when-not (= :never
-                                (:alert/next-event tx-event))
-                     [:crux.tx/put alert-event
-                      (tick/inst (:alert/next-event tx-event))])])
-       (entity id)))}}}
+       (submit-tx (if (= :never
+                          (:alert/next-event tx-event))
+                     [[:crux.tx/put tx-event]]
+                     [[:crux.tx/put tx-event]
+                      [:crux.tx/put alert-event
+                       (tick/inst (:alert/next-event tx-event))]]))
+            tx-event))}}}
 
 ;; A brief explanation of the various convenience functions used
 ;; in the above:
@@ -482,6 +485,69 @@
 ;;      fault though, amirite?)
 ;; Because of that, using Kafka as a queue for the slower legacy
 ;; system actually makes a lot of sense.
+
+;; Here's what our order looks like in JSON:
+{
+    "billTo": "LANHOU",
+    "deliveryWindow": {
+        "startDate": "2020-03-18T19:00:00",
+        "endDate": "2020-03-18T23:00:00"
+    },
+    "pickups": [
+        {
+            "shipper": "MOTPAS",
+            "commodities": [
+                {
+                    "supplier": "SHEBEA",
+                    "commodity": "NL",
+                    "volume": 4500
+                },
+                {
+                    "supplier": "SHEBEA",
+                    "commodity": "SU",
+                    "volume": 4000
+                }
+            ]
+        }
+    ],
+    "drops": [
+        {
+            "site": "20405",
+            "commodities": [
+                {
+                    "commodity": "NL",
+                    "volume": 4500
+                },
+                {
+                    "commodity": "SU",
+                    "volume": 4000
+                }
+            ]
+        }
+    ]
+ }
+
+;; And here's what it looks like to our collector which helpfully
+;; converts it to EDN that clojure likes.
+{:billTo "LANHOU"
+ :deliveryWindow {:startDate "2020-03-18T19:00:00"
+                  :endDate "2020-03-18T23:00:00"}
+ :pickups [{:shipper "MOTPAS"
+            :commodities
+            [{:supplier "SHEBEA"
+              :commodity "NL"
+              :volume 4500}
+             {:supplier "SHEBEA"
+              :commodity "SU"
+              :volume 4000}]}]
+ :drops [{:site "20405"
+          :commodities [{:commodity "NL"
+                         :volume 4500}
+                        {:commodity "SU",
+                         :volume 4000}]}]}
+
+
+
 
 ;; This time let's just write the response function first, and
 ;; then we'll look at the whole collector.
@@ -844,18 +910,21 @@
 
  (defn db-fy
    [order id-string]
-   (-> order
-       (clojure.set/rename-keys
-        {:billTo :order/bill-to
-         :pickups :order/pickups
-         :drops :order/drops
-         :shipper :pickup/shipper
-         :site :drop/site
-         :commodity :commodity/type
-         :volume :commodity/volume
-         :supplier :commodity/supplier})
-       (assoc :crux.db/id
-              (keyword "order" id-string))))
+   (assoc
+    (clojure.walk/postwalk-replace
+     {:billTo :order/bill-to
+      :foreignOrderNumber :order/foreign-number
+      :orderNumber :order/order-number
+      :pickups :order/pickups
+      :drops :order/drops
+      :shipper :pickup/shipper
+      :site :drop/site
+      :commodity :commodity/type
+      :volume :commodity/volume
+      :supplier :commodity/supplier}
+     order)
+    :crux.db/id
+    (keyword "order" id-string)))
 
  (defn create-order
    [ctx]
@@ -890,13 +959,81 @@
        valid-order?)))
 
  {:id :create-order
- :description "Validates and creates an order"
- :methods
- {:post
-  {:consumes #{"application/json"}
-   :produces "application/json"
-   :response create-order}}})
+  :description "Validates and creates an order"
+  :authentication {:realm "Customer-Facing"
+                   :scheme "Bearer"
+                   :authenticate authenticate}
+  :authorization {:authorize authorize
+                  :custom/roles #{:user/orders}}
+  :methods {:post
+            {:consumes #{"application/json"}
+             :produces "application/json"
+             :response create-order}}})
 
 ;; Huh, well that was easy. After all the trouble it took to
 ;; create the function, actually turning it into a resource was
 ;; simple.
+
+;; A couple notes on some things that we did.
+;; The :authentication field is part of yada's resource model.
+;; It asks you to define an authentication scheme (right now
+;; we're only set up for bearer auth. This will change in the
+;; future.), and to define an authentication function. We've
+;; included an authentication function in the collectors
+;; namespace for you to use that checks whether the bearer token
+;; being used is valid and that the user exists in the internal
+;; dataworks db.
+ 
+;; The :authorization field is also a feature of yada's resource
+;; model. It requires you to define an authorization function,
+;; which we've included in the collectors namespace. Our
+;; function checks whether any of the roles defined in the
+;; :custom/roles field are included in the claims encoded in the
+;; bearer token. Super simple, but effective.
+
+;; clojure.walk/postwalk-replace is a function in the
+;; clojure.walk namespace, which ships with clojure. You can
+;; call just about any function from any namespace if you
+;; fully qualify it, and it exists on the classpath. We don't
+;; prevent this or sandbox the code, in part because we don't
+;; have any idea what precisely you'll need to do. Instead, we
+;; give you sensible defaults and presume you won't go outside
+;; of them unless you need to. You can call up the internal db,
+;; you can do java interop, and operate on the filesystem.
+;; You probably shouldn't do those things, but if you need to
+;; for some reason, we don't stop you. Again, don't eval code
+;; from untrusted sources.
+
+;; The rest of the resource is all stuff you've seen before.
+
+;; So let's recap: In 124 lines of code we achieved the
+;; following:
+;;     Create an API endpoint that:
+;;     Authenticates the user.
+;;     Verifies that the user is authorized to create an order.
+;;     Takes in an order.
+;;     Checks for required fields
+;;     Checks for valid order volumes
+;;     Transforms the order into our order schema (needs work)
+;;     Puts the order into our database.
+;;     Sends the order to a client-side kafka consumer.
+;;     Creates an alert if we don't hear back from our database
+;;        in the next five minutes or so.
+
+;; Not half bad!
+
+;; One of the things that I really want to do with these demo
+;; apps is show you how to do things that are actually useful.
+;; Most demos are toy-ish, and try to show you how easy things
+;; are, but in doing so, they neglect showing you how to
+;; actually use the damn thing to do things you might actually
+;; want to do, presuming that the programmer will just read the
+;; docs and figure it out from there. I also expect you to read
+;; the docs (once I write them), but frankly the best way to
+;; show you how to use a tool is to just show you how to use
+;; the tool.
+
+;; Now we need do do the consumer side. We presume the thing that
+;; is consuming our tentative orders is a windows service that is
+;; creating them, then sending us back an order event that looks
+;; like the following
