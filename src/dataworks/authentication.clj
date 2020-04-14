@@ -51,11 +51,14 @@
         (add-role "developer" :developer/all)
         (add-role "admin" :admin/all))))
 
-(defn authorize [ctx authenticate authorization]
-  (let [claim-roles (:roles authenticate)
-        auth-roles (get-roles authorization)
+(defn authorize
+  [& roles]
+  (fn
+    [ctx authenticate authorization]
+    (let [claim-roles (:roles authenticate)
+        auth-roles (get-roles (into #{} roles))
         roles (st/intersection claim-roles auth-roles)]
-    (if (empty? roles) nil roles)))
+    (if (empty? roles) nil roles))))
 
 (def dev-authentication
   {:realm "Developer"
@@ -64,8 +67,7 @@
 
 (def dev-authorization
   ;; Eventually Hierarchical role auth should be a thing
-  {:authorize authorize
-   :custom/roles #{:developer/all}})
+  {:authorize (authorize :developer/all)})
 
 (defn get-user [user]
   (entity (keyword "user" user)))
@@ -135,8 +137,7 @@
     :authentication {:realm "Admin"
                      :scheme "Bearer"
                      :authenticate authenticate}
-    :authorization {:authorize authorize
-                    :custom/roles #{:admin/all}}
+    :authorization {:authorize (authorize :admin/all)}
     :path-info? true
     :methods {:get
               {:produces "application/json"

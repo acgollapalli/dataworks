@@ -509,8 +509,7 @@
                    :authenticate authenticate}
   ;; TODO Ensure that customers are able to order only for
   ;; their own stores.
-  :authorization {:authorize authorize
-                  :custom/roles #{:user/orders}}
+  :authorization {:authorize (authorize :user/order)}
   :methods {:post
             {:consumes #{"application/json"}
              :produces "application/json"
@@ -530,11 +529,11 @@
 
 (transformers
  []
-(defn update-supply
+ (defn update-supply
    [{:keys [location inventory] :as supply}]
    (->? supply
-       
-    )
+
+        )
    )
 
  {:id :supply
@@ -544,8 +543,7 @@
                    :authenticate authenticate}
   ;; TODO Ensure that customers are able to order only for
   ;; their own stores.
-  :authorization {:authorize authorize
-                  :custom/roles #{:user/supply}}
+  :authorization {:authorize (authorize :user/supply)}
   :methods {:post
             {:consumes #{"application/json"}
              :produces "application/json"
