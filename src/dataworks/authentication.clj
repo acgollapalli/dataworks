@@ -39,9 +39,8 @@
 (defn authenticate [ctx token scheme]
   (token-verify token))
 
-(defn get-roles [authorization]
-  (let [roles (:custom/roles authorization)
-        namespaces (into #{} (map namespace roles))
+(defn get-roles [roles]
+  (let [namespaces (into #{} (map namespace roles))
         add-role (fn [roles nsp role]
                    (if (contains? namespaces nsp)
                      (conj roles role)

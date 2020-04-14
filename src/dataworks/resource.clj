@@ -60,8 +60,8 @@
    {:id (get-entity-param function-type "update")
     :description (str "resource for existing individual "
                       (stringify-keyword function-type) "s")
-    :authentication auth/dev-authentication
-    :authorization auth/dev-authorization
+    :authentication auth/dev-authentication ;; TODO hierarchical
+    :authorization auth/dev-authorization   ;;      role auth
     :path-info? true
     :methods {:get
               {:produces "application/json"
