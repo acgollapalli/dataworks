@@ -528,11 +528,12 @@
 :supply
 ;; what we expect (json converted to edn):
 
-
- (defn update-supply
+(transformers
+ []
+(defn update-supply
    [{:keys [location inventory] :as supply}]
    (->? supply
-
+       
     )
    )
 

@@ -6,7 +6,7 @@
    [mount.core :refer [defstate]]
    [tick.alpha.api :as time]))
 
-(defn kafka-settings []
+(def kafka-settings
   (if-let [settings   (-> "config.edn"
       slurp
       read-string
@@ -22,7 +22,7 @@
    (merge
     {:crux.node/topology '[crux.kafka/topology
                            crux.kv.rocksdb/kv-store]}
-    (kafka-settings)))
+    kafka-settings))
   :stop
   (.close user-db))
 

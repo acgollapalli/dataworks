@@ -1,5 +1,6 @@
 (ns dataworks.collectors
   (:require
+   [clojure.pprint :refer [pprint]]
    [dataworks.authentication :refer [authenticate
                                      authorize]]
    [dataworks.common :refer :all]
@@ -10,6 +11,7 @@
    [dataworks.stream-utils :refer [produce!]]
    [dataworks.time-utils :refer [consume-time]]
    [dataworks.transactor :refer [transact!]]
+   [dataworks.transformer :refer [transformers]]
    [crux.api :as crux]
    [mount.core :refer [defstate] :as mount]
    [tick.alpha.api :as tick]

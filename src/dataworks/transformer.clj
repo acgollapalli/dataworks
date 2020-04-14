@@ -1,7 +1,9 @@
 (ns dataworks.transformer
   (:require
    [dataworks.common :refer :all]
-   [dataworks.transformers :refer [transformer-ns]]))
+   [dataworks.db.app-db :refer :all]
+   [dataworks.transformers :refer [transformer-ns]]
+   [mount.core :refer [defstate]]))
 
 (def transformer-map
   (atom {}))
@@ -84,11 +86,10 @@
 
 (defn def-ify [xformer]
   `(def ~xformer
-     ~(get transformer-map (keyword xformer))))
+     ~(get @transformer-map (keyword xformer))))
 
 (defmacro transformers
   [xformers & forms]
-  (apply ->let
-         (conj forms
-               (map def-ify
-                    xformers))))
+  (concat '(->let)
+          (map def-ify xformers)
+          forms))

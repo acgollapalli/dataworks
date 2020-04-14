@@ -8,6 +8,7 @@
    [cheshire.core :as cheshire]
    [crux.api :as crux]
    [dataworks.transactor :refer [transact!]]
+   [dataworks.transformer :refer [transformers]]
    [dataworks.stream-utils :refer [produce!
                                    consumer-instance
                                    consume!]]

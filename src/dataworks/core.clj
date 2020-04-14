@@ -18,6 +18,8 @@
       "internal/" (update-resource :internal)
       "transactor" (creation-resource :transactor)
       "transactor/" (update-resource :transactor)
+      "transformer" (creation-resource :transformer)
+      "transformer/" (update-resource :transformer)
       "register" auth/register
       "login" auth/login
       "admin/user-roles/" auth/admin-user-roles}]
@@ -45,7 +47,8 @@
    "#'dataworks.internal/internal-state"
    "#'dataworks.stream-utils/producers"
    "#'dataworks.heartbeat/heartbeat-chan"
-;;   "#'dataworks.heartbeat/heartbeat"
+   "#'dataworks.heartbeat/heartbeat"
+   "#'dataworks.db.transformer/transformer-state"
    "#'dataworks.core/svr"])
 
 

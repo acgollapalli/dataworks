@@ -6,7 +6,7 @@
    [tick.alpha.api :as tick]
    [mount.core :refer [defstate]]))
 
-(defn internal-kafka-settings []
+(def internal-kafka-settings
   (if-let [settings (-> "config.edn"
                         slurp
                         read-string
@@ -24,7 +24,7 @@
    (merge
     {:crux.node/topology '[crux.kafka/topology
                            crux.kv.rocksdb/kv-store]}
-    (internal-kafka-settings))) ;;rocksdb can't be used twice
+    internal-kafka-settings)) ;;rocksdb can't be used twice
   :stop
   (.close app-db))
 

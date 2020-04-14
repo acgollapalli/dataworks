@@ -25,24 +25,6 @@
                          (-> ~'params ~next-form)))]
         (recur (list status? x) (next forms))))))
 
-(defn request-status
-  "It was such a common hassle to have to manually write
-   out maps like {:status :failure} or {:status :success}
-   that I wrote out this and the following two functions."
-  ([status message]
-   {:status status
-    :message message})
-  ([status message details]
-   (assoc (request-status status message)
-          :details
-          details)))
-
-(def failure
-  (partial request-status :failure))
-
-(def succcess
-  (partial request-status :success))
-
 (defmacro ->let
   "Input:
           (->let
@@ -113,6 +95,40 @@
   (keyword
    (string/replace
     message #"%" (stringify-keyword key))))
+
+(defn request-status
+  "It was such a common hassle to have to manually write
+   out maps like {:status :failure} or {:status :success}
+   that I wrote out this and the following two functions.
+
+   Input: (request-status :success
+                          :function-created
+                          <function>)
+   Output: {:status :success
+            :message :function-created
+            :details <function>}"
+  ([status message]
+   {:status status
+    :message message})
+  ([status message details]
+   (assoc (request-status status message)
+          :details
+          details)))
+
+(def failure
+  (partial request-status :failure))
+
+(def succcess
+  (partial request-status :success))
+
+(defn response-status
+  "This takes a yada context as well as the status and body
+   that you want it to have and returns a yada response with
+   that status and body"
+  [{:keys [response]} status body]
+  (assoc response
+         :status status
+         :body body))
 
 (defmacro if-vector-first
   "Input: params

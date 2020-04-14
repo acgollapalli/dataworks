@@ -14,20 +14,24 @@
                                update-internal!]]
    [dataworks.transactor :refer [create-transactor!
                                  update-transactor!]]
+   [dataworks.transformer :refer [create-transformer!
+                                 update-transformer!]]
    [yada.yada :refer [resource as-resource]]))
 
 (defn create! [function-type body]
   ((function-type
    {:collector create-collector!
     :internal create-internal!
-    :transactor create-transactor!})
+    :transactor create-transactor!
+    :transformer update-transformer!})
    body))
 
 (defn update! [function-type name body]
   ((function-type
    {:collector update-collector!
     :internal update-internal!
-    :transactor update-transactor!})
+    :transactor update-transactor!
+    :transformer update-transformer!})
    name
    body))
 
