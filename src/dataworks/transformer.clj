@@ -42,7 +42,7 @@
   [params]
   (if-vector-first params
     db-fy
-    {:crux.db/id (keyword "transformer" (:name params))
+    {:crux.db/id (get-entity-param (:name params) :transformer)
      :transformer/name (keyword (:name params))
      :transformer/function (:function params)
      :stored-function/type :transformer}))
@@ -54,6 +54,7 @@
        (parseable? :function)
        (function-already-exists? :transformer)
        db-fy
+       dependencies?
        evalidate
        added-to-db?
        apply-transformer!))
@@ -67,6 +68,7 @@
        (has-params? :transformer :name)
        (valid-update? :transformer :function)
        db-fy
+       dependencies?
        evalidate
        added-to-db?
        apply-transformer!))

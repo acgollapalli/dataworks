@@ -362,8 +362,7 @@
   :authentication {:realm "Customer-Facing"
                    :scheme "Bearer"
                    :authenticate authenticate}
-  :authorization {:authorize authorize
-                  :custom/roles #{:user/orders}}
+  :authorization {:authorize (authorize :user/orders)}
   :methods {:post
             {:consumes #{"application/json"}
              :produces "application/json"
@@ -564,21 +563,23 @@
    {:next-run 0}))
 
 ;; A few notes. First, you'll notice that we're creating a kafka
-;; consumer instance. This won't be the case by version 0.5.0, but
-;; it is the case right now, so please bear with it. Eventually we'll
-;; have a thread pool of consumers that send consumed events to
-;; core.async channels and it'll make it all cool and optimum and stuff.
-;; The second thing is that we created a map of handler functions for
-;; different events. It saves us from going
+;; consumer instance. This won't be the case by version 0.5.0,
+;; but it is the case right now, so please bear with it.
+;; Eventually we'll have a thread pool of consumers that send
+;; consumed events to core.async channels and it'll make it all
+;; cool and optimum and stuff. The second thing is that we
+;; created a map of handler functions for different events. It
+;; saves us from going
 (if (= Status "my-status")
   (handle-status))
-;; over and over. The third thing is that our actual consume! function
-;; is really simple, it runs the function event-handler on each record
-;; that our kafka consumer consumes. Finally, note that our last
-;; function returns the map {:next-run 0} this tells the dataworks
-;; cluster to re-run the collector immediately. It's sort of like
-;; (while true ...), but distributed. It's probably worth noting
-;; that all our handlers could be written as transactors as well.
+;; over and over. The third thing is that our actual consume!
+;; function is really simple, it runs the function event-handler
+;; on each record that our kafka consumer consumes. Finally,
+;; note that our last function returns the map {:next-run 0}
+;; this tells the dataworks cluster to re-run the collector
+;; immediately. It's sort of like (while true ...), but
+;; distributed. It's probably worth noting that all our handlers
+;; could be written as transactors as well.
 
 ;; And now you'll notice that we referred to a couple transactors that
 ;; haven't been written yet. We should probably write those.
@@ -616,12 +617,12 @@
       :form-params Details
       :content-type :json})))
 
-;; "Now wait just a gosh-darned minute!" you think, "Those are all
-;; the same function!" Yes, yes they are. And that's because I haven't
-;; included URL params, but each of those goes to a different endpoint.
-;; Given that that's the case, how might we handle this?
-;; I know! Let's create a single transactor, that accepts two params,
-;; an endpoint, and a record.
+;; "Now wait just a gosh-darned minute!" you think, "Those are
+;; all the same function!" Yes, yes they are. And that's because
+;; I haven't included URL params, but each of those goes to a
+;; different endpoint. Given that that's the case, how might we
+;; handle this? I know! Let's create a single transactor, that
+;; accepts two params, an endpoint, and a record.
 
 :order-update
 (fn
@@ -637,18 +638,18 @@
 ;; And now for our internal:
 (->let
  (def consumer
-   ;; This is our kafka consumer instance. Say something nice about her.
-   ;; The consumer-instance function is in dataworks.stream-utils.
-   ;; It's worth reading the source to help you understand what's
-   ;; going on.
+   ;; This is our kafka consumer instance. Say something nice
+   ;; about her. The consumer-instance function is in
+   ;; dataworks.stream-utils. It's worth reading the source to
+   ;; help you understand what's going on.
    (consumer-instance
     "order-events"
     :json))
 
  (defn db-fy
-   "Our happy (now capitalized) db-fy function.
-    Docstrings get chucked out when you macroexpand a '(defn ...)
-    so this is totally fine (and sort of useless)."
+   "Our happy (now capitalized) db-fy function. Docstrings get
+    chucked out when you macroexpand a '(defn ...) so this
+    docstring is totally fine (and sort of useless)."
    [order id-string]
    (assoc
     (clojure.walk/postwalk-replace

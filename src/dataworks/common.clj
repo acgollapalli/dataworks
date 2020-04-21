@@ -25,6 +25,51 @@
                          (-> ~'params ~next-form)))]
         (recur (list status? x) (next forms))))))
 
+(defn recursive-filter
+  "recursively filters through nested sequences, applying the
+   test 'test' to each sequence and if a function 'f' is
+   specified, applyed to that sequence, returning the result of
+   f as though you had done (map f (filter test s))."
+  ([test f s]
+  (if (coll? s)
+         (if (test s)
+           (concat '()
+                   (f s)
+                   (apply concat
+                          (map (partial recursive-filter test f)
+                               s)))
+           (apply concat
+                  (map (partial recursive-filter test f)
+                       s)))
+         '()))
+  ([test s]
+   (recursive-filter test #(conj '() %) s)))
+
+(defn get-names
+"searches through a seq 's' for sequences starting with a
+   symbol 'sym' then gets the second value of the sequence.
+   (in the name of )
+   returns results as a list.
+
+   input: (get-defs 'defn
+                    '(defn a
+                       [x]
+                       (defn b
+                         [y]
+                         (inc y))
+                       (b a)))
+
+  output: '(a b)
+
+  Why would you want this? Mainly in the case of nested
+  transformer blocks to get all the stored functions a stored
+  function depends upon."
+  [sym s]
+  (recursive-filter
+   #(= (first %) sym) ;; the test function
+   second ;; the function applied to a tested sequenct
+   s)) ;; the sequence itself
+
 (defmacro ->let
   "Input:
           (->let
@@ -78,11 +123,15 @@
   (string/replace (str key) #":" ""))
 
 (defn get-entity-param
+  "input: (get-entity-param :test :transformer)
+   output :transformer/test"
   [param function-type]
   (keyword
    (stringify-keyword function-type)
    (if (keyword? param)
-     (stringify-keyword param)
+     (string/replace
+      (stringify-keyword param)
+      #"/" ".")
      param)))
 
 (defn generate-message
@@ -116,9 +165,11 @@
           details)))
 
 (def failure
+  "failure status message. takes 1-2 args"
   (partial request-status :failure))
 
 (def succcess
+  "success status message. takes 1-2 args"
   (partial request-status :success))
 
 (defn response-status
@@ -129,6 +180,14 @@
   (assoc response
          :status status
          :body body))
+
+(defn if-failure-response
+  "A convenience function that allows an http-status-code
+   for failure responses."
+  [ctx response http-failure-code]
+  (if (= (:status response) :failure)
+  (response-status ctx http-failure-code response)
+  response))
 
 (defmacro if-vector-first
   "Input: params
@@ -156,7 +215,7 @@
    Output: [params (function params)]
    OR
    Input: [params & others]
-   Output [(function params) & others]
+   Output [params other-1 ... other-n (function params)]
    Relies on variable capture to substitute the first of the
    parameter vector for the parameters field in your function.
    Uses the validation macro (->?), so if your function returns
@@ -234,8 +293,8 @@
         :else params))
 
 (defn parseable?
-  "Checks whether a string is parseable to edn. Doesn't eval.
-   Accepts time-literals."
+  "Checks whether a string is parseable to edn.
+   Doesn't eval. Accepts time-literals."
   [{:keys [name] :as params} key]
   (println "Checking" key "parseability: " name)
   (if-let [value (get params key)]
@@ -248,6 +307,7 @@
     params))
 
 (defn updating-correct-function?
+  "Checks name param against provided param."
   [{:keys [name] :as params} path-name]
   (println "Checking for correct function: "
            path-name "," name)
@@ -331,13 +391,15 @@
                                 "no-change-from-existing-%")}
     [params current-function]))
 
-(defn function? [function]
+(defn function?
+  "Checks if function is function."
+  [function]
   (if (fn? function)
     function
     {:status :failure
      :message :function-param-does-not-evaluate-to-function}))
 
-;; Thanks whocaresanyway
+;; Thanks whocaresanyway on stack exchange.
 (defn arg-count [f]
   (let [m (first (.getDeclaredMethods (class f)))
         p (.getParameterTypes m)]
@@ -349,3 +411,21 @@
     function
     {:status :failure
      :message :function-param-must-have-single-arg}))
+
+(defn dependencies?
+  [params function-type]
+  (if-vector-first params
+    dependencies?
+    (let [dependencies (into #{}
+                             (map keyword)
+                             (get-names
+                              'transformers
+                              ((get-entity-param
+                                :function
+                                function-type)
+                               params)))]
+      (if-not (empty? dependencies)
+        (assoc params
+               :stored-function/dependencies
+               dependencies)
+        params))))

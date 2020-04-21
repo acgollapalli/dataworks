@@ -23,7 +23,7 @@
    {:collector create-collector!
     :internal create-internal!
     :transactor create-transactor!
-    :transformer update-transformer!})
+    :transformer create-transformer!})
    body))
 
 (defn update! [function-type name body]

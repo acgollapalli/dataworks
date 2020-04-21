@@ -526,15 +526,21 @@
 
 :supply
 ;; what we expect (json converted to edn):
-
-(transformers
- []
+;; Let's take a second here to
+(->let
  (defn update-supply
-   [{:keys [location inventory] :as supply}]
-   (->? supply
-
-        )
-   )
+   [{:keys [location inventory]}]
+   (let [location-id (keyword "source" location)
+         previous-inventory (entity location-id)
+         inventory-tx {:crux.db/id location-id
+                       :source/inventory inventory}
+         transaction (if previous-inventory
+                       [:crux.tx/put
+                        inventory-tx]
+                       [:crux.tx/cas
+                        previous-inventory
+                        inventory-tx])]
+     (submit-tx [transaction])))
 
  {:id :supply
   :description "Where we get our supply routes"
@@ -549,5 +555,4 @@
              :produces "application/json"
              :response
              (fn [{:keys [body]}]
-               (update-supply))}}}
- )
+               (update-supply))}}})

@@ -2,10 +2,19 @@
 
 * App
 ** Collectors
-*** How to deliver Clojurescript Views via Collectors
-*** How to deliver HTML Views via Collectors
+*** [#C] How to deliver Clojurescript Views via Collectors
+*** [#C] How to deliver HTML Views via Collectors
 ** Transformers
 ** Transactors
 ** Application
-*** TODO Code Entry Apparatus
-*** TODO View Preview
+*** TODO [#C] Code Entry Apparatus
+*** TODO [#C] View Preview
+
+
+* The actual thing:
+** TODO [#A] kafka events on app update
+** TODO [#A] test dependency related reloading
+** TODO [#B] double check yada auth
+** TODO [#A] test heartbeat protocol with cluster
+** TODO [#A] docs 2 and 3.
+** TODO [#B] figure out a way to keep credentials out of stored functions. (is this even possible?)

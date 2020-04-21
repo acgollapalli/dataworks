@@ -17,7 +17,8 @@
 ;; A collector does a thing when an endpoint is called.
 ;; It's effectively a yada resource and a path.
 ;; You might reasonably think of it as an API endpoint.
-;; Whatever you specify as your :resource, it must evaluate to a yada resource.
+;; Whatever you specify as your :resource, it must evaluate
+;; to a yada resource.
 ;; For information on yada resources see:
 ;;     https://github.com/juxt/yada/tree/master/doc
 ;; (The manual on the website is outdated. We're on the alpha version of yada.)

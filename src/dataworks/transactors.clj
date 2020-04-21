@@ -3,6 +3,7 @@
    [cheshire.core :as cheshire]
    [clj-http.client :as client]
    [dataworks.transformer :refer [transformers]]
+   [dataworks.transactor :refer [transact!]]
    [tick.alpha.api :as tick]))
 
 (def transactor-ns *ns*)
