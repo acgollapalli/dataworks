@@ -47,11 +47,11 @@
 
 (defn evalidate [params]
   (if-vector-conj params
-    "params"
-    (->? params
-         evals?
-         function?
-         one-arg?)))
+                  "params"
+                  (->? params
+                       evals?
+                       function?
+                       one-arg?)))
 
 (defn get-millis [t]
   (tick/millis (tick/between (tick/now)
@@ -59,18 +59,18 @@
 
 (defn db-fy [params]
   (if-vector-first params
-    db-fy
-    (let [{:keys [name function init]} params]
-      {:crux.db/id (keyword "internal" name)
-       :internal/name name
-       :internal/function function
-       :internal/init init})))
+                   db-fy
+                   (let [{:keys [name function init]} params]
+                     {:crux.db/id (keyword "internal" name)
+                      :internal/name name
+                      :internal/function function
+                      :internal/init init})))
 
 (defn run-next [{:keys [next-run] :as params} channel]
   (go
-      (do
-        (<! (timeout (get-millis next-run)))
-        (>! channel params))))
+    (do
+      (<! (timeout (get-millis next-run)))
+      (>! channel params))))
 
 (defn create-new-alert
   [{:keys [next-run] :as params} name]
@@ -83,8 +83,8 @@
 
 (defn delete-old-alert [name]
   (submit-tx [[:crux.tx/delete
-                 (keyword "internal.alert" name)
-                 (tick/inst (tick/now))]]))
+               (keyword "internal.alert" name)
+               (tick/inst (tick/now))]]))
 
 (defn check-alerts
   [name channel]
@@ -101,7 +101,7 @@
       (run-next params channel))))
 
 (defn new-internal
-  [[{:internal/keys [name ]} function]]
+  [[{:internal/keys [name]} function]]
   {:channel (chan)
    :function
    (fn [channel]
@@ -113,10 +113,10 @@
                          (function param))
                         (recur n)))
              (timeout 1) ([]
-                           (consume!
-                            (consumer-instance
-                             (str "internal." name)
-                             (handle-event name channel)))
+                          (consume!
+                           (consumer-instance
+                            (str "internal." name)
+                            (handle-event name channel)))
                           (if (>= 10 n)
                             (do
                               (check-alerts)
@@ -127,16 +127,16 @@
   ([params]
    (apply add-internal! (evalidate params)))
   ([{:internal/keys [name init] :as params} function]
-  (if-let [{:keys [channel]} ((keyword name) @internal-map)]
-    (close! channel))
-  (swap! internal-map
-         (fn [i-map]
-           (assoc i-map
-                  (keyword name)
-                  (new-internal params function))))
-  (let [{:keys [channel function]}
-        (get @internal-map (keyword name))]
-    (function channel))
+   (if-let [{:keys [channel]} ((keyword name) @internal-map)]
+     (close! channel))
+   (swap! internal-map
+          (fn [i-map]
+            (assoc i-map
+                   (keyword name)
+                   (new-internal params function))))
+   (let [{:keys [channel function]}
+         (get @internal-map (keyword name))]
+     (function channel))
    params))
 
 (defn apply-internal! [params]

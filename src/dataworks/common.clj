@@ -31,22 +31,22 @@
    specified, applyed to that sequence, returning the result of
    f as though you had done (map f (filter test s))."
   ([test f s]
-  (if (coll? s)
-         (if (test s)
-           (concat '()
-                   (f s)
-                   (apply concat
-                          (map (partial recursive-filter test f)
-                               s)))
-           (apply concat
-                  (map (partial recursive-filter test f)
-                       s)))
-         '()))
+   (if (coll? s)
+     (if (test s)
+       (concat '()
+               (f s)
+               (apply concat
+                      (map (partial recursive-filter test f)
+                           s)))
+       (apply concat
+              (map (partial recursive-filter test f)
+                   s)))
+     '()))
   ([test s]
    (recursive-filter test #(conj '() %) s)))
 
 (defn get-names
-"searches through a seq 's' for sequences starting with a
+  "searches through a seq 's' for sequences starting with a
    symbol 'sym' then gets the second value of the sequence.
    (in the name of )
    returns results as a list.
@@ -186,8 +186,8 @@
    for failure responses."
   [ctx response http-failure-code]
   (if (= (:status response) :failure)
-  (response-status ctx http-failure-code response)
-  response))
+    (response-status ctx http-failure-code response)
+    response))
 
 (defmacro if-vector-first
   "Input: params
@@ -234,9 +234,8 @@
                             (reverse
                              ~'plist)
                             %)))]
-       (->? ~expression
-            ~'my-conj)))
-
+     (->? ~expression
+          ~'my-conj)))
 
 (defn vec-ify
   [maybe-coll]
@@ -271,8 +270,8 @@
          (if (nil? (get-in m (vec-ify field)))
            {:status :failure
             :message (generate-message
-                      field "%-must-have-a-value" )}
-           (recur (next fields))) )
+                      field "%-must-have-a-value")}
+           (recur (next fields))))
        m))))
 
 (defn valid-name?
@@ -372,7 +371,7 @@
                        not-parsed (:status parsed)]
                    (if (= not-parsed :failure)
                      not-parsed
-                     [parsed current-function]))) ))
+                     [parsed current-function])))))
       input)))
 
 (defn valid-update?
@@ -382,10 +381,10 @@
    return the failure map"
   [[params current-function] function-type & params?]
   (println "Checking if valid update.")
-  (if ( every? #(= (get params %)
-                   (get current-function
-                        (get-entity-param % function-type)))
-       params?)
+  (if (every? #(= (get params %)
+                  (get current-function
+                       (get-entity-param % function-type)))
+              params?)
     {:status :failure
      :message (generate-message function-type
                                 "no-change-from-existing-%")}
@@ -412,20 +411,44 @@
     {:status :failure
      :message :function-param-must-have-single-arg}))
 
+(defn if-assoc
+  [map & kvs]
+  (loop [map map
+         kvs kvs]
+    (let [return (if (second kvs)
+                   (apply assoc map (take 2 kvs))
+                   map)]
+      (if kvs
+        (recur return
+               (next (next kvs)))
+        return))))
+
+(defn if-conj
+  [coll & values]
+  (loop [coll coll
+         values (reverse values)]
+    (if values
+      (if (first values)
+        (recur (conj coll (first values))
+               (next values))
+        (recur coll
+               (next values)))
+      coll)))
+
 (defn dependencies?
   [params function-type]
   (if-vector-first params
-    dependencies?
-    (let [dependencies (into #{}
-                             (map keyword)
-                             (get-names
-                              'transformers
-                              ((get-entity-param
-                                :function
-                                function-type)
-                               params)))]
-      (if-not (empty? dependencies)
-        (assoc params
-               :stored-function/dependencies
-               dependencies)
-        params))))
+                   dependencies?
+                   (let [dependencies (into #{}
+                                            (map keyword)
+                                            (get-names
+                                             'transformers
+                                             ((get-entity-param
+                                               :function
+                                               function-type)
+                                              params)))]
+                     (if-not (empty? dependencies)
+                       (assoc params
+                              :stored-function/dependencies
+                              dependencies)
+                       params))))

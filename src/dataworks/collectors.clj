@@ -18,7 +18,6 @@
    [yada.yada :refer [as-resource] :as yada]
    [schema.core :refer [defschema] :as schema]))
 
-
 (defstate db
   :start user-db
   :end nil)

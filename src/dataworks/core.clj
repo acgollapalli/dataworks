@@ -51,7 +51,6 @@
    "#'dataworks.db.transformer/transformer-state"
    "#'dataworks.core/svr"])
 
-
 (defn go []
   (apply mount/start states))
 

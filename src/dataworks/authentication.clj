@@ -21,12 +21,12 @@
 
 (defn create-token [{:user/keys [user-name roles]}]
   {:token
-    (jwt/sign
-     {:claims (pr-str {:user user-name :roles roles})
-      :timeout (str (tick/+
-                     (tick/date-time)
-                     (tick/new-period 30 :days)))}
-     secret)})
+   (jwt/sign
+    {:claims (pr-str {:user user-name :roles roles})
+     :timeout (str (tick/+
+                    (tick/date-time)
+                    (tick/new-period 30 :days)))}
+    secret)})
 
 (defn token-verify [yada-syntax-map]
   (let [token (:yada.syntax/value yada-syntax-map)
@@ -34,7 +34,7 @@
         timeout (:timeout tkn)
         claims (edn/read-string (:claims tkn))]
     (when (tick/<= (tick/date-time) (tick/date-time timeout))
-          claims)))
+      claims)))
 
 (defn authenticate [ctx token scheme]
   (token-verify token))
@@ -55,9 +55,9 @@
   (fn
     [ctx authenticate authorization]
     (let [claim-roles (:roles authenticate)
-        auth-roles (get-roles (into #{} roles))
-        roles (st/intersection claim-roles auth-roles)]
-    (if (empty? roles) nil roles))))
+          auth-roles (get-roles (into #{} roles))
+          roles (st/intersection claim-roles auth-roles)]
+      (if (empty? roles) nil roles))))
 
 (def dev-authentication
   {:realm "Developer"
@@ -71,15 +71,14 @@
 (defn get-user [user]
   (entity (keyword "user" user)))
 
-
 (defn add-user [{:keys [user pass email roles display-name]}]
   (submit-tx [[:crux.tx/put
-                    {:crux.db/id (keyword "user" user)
-                     :user/user-name user
-                     :user/display-name display-name
-                     :user/email email
-                     :user/roles roles
-                     :user/pass (hash/derive pass)}]])
+               {:crux.db/id (keyword "user" user)
+                :user/user-name user
+                :user/display-name display-name
+                :user/email email
+                :user/roles roles
+                :user/pass (hash/derive pass)}]])
   (dissoc (get-user user)
           :user/pass))
 
@@ -105,10 +104,10 @@
 (defn new-user [{:keys [user] :as params}]
   (if (empty?
        (query
-               '{:find [e]
-                 :where [[e :crux.db/id e]
-                         [(clojure.string/starts-with?
-                           e ":user/")]]}))
+        '{:find [e]
+          :where [[e :crux.db/id e]
+                  [(clojure.string/starts-with?
+                    e ":user/")]]}))
     (add-user (assoc params :roles #{:admin/all
                                      :developer/all
                                      :user/all}))

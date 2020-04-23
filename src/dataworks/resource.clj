@@ -15,23 +15,23 @@
    [dataworks.transactor :refer [create-transactor!
                                  update-transactor!]]
    [dataworks.transformer :refer [create-transformer!
-                                 update-transformer!]]
+                                  update-transformer!]]
    [yada.yada :refer [resource as-resource]]))
 
 (defn create! [function-type body]
   ((function-type
-   {:collector create-collector!
-    :internal create-internal!
-    :transactor create-transactor!
-    :transformer create-transformer!})
+    {:collector create-collector!
+     :internal create-internal!
+     :transactor create-transactor!
+     :transformer create-transformer!})
    body))
 
 (defn update! [function-type name body]
   ((function-type
-   {:collector update-collector!
-    :internal update-internal!
-    :transactor update-transactor!
-    :transformer update-transformer!})
+    {:collector update-collector!
+     :internal update-internal!
+     :transactor update-transactor!
+     :transformer update-transformer!})
    name
    body))
 
@@ -76,13 +76,13 @@
                (fn [ctx]
                  (let [name (get-in ctx [:request :path-info])
                        body (:body ctx)]
-                    (update! function-type name body)))}}}))
+                   (update! function-type name body)))}}}))
 
 (def user-sub
   (fn [ctx]
     (let [path-info (get-in ctx [:request :path-info])]
       (if-let [path (bidi/match-route
-                       ["" @atomic-routes] path-info)]
+                     ["" @atomic-routes] path-info)]
         (@resource-map (:handler path))
         (as-resource nil)))))
 

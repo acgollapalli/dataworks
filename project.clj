@@ -1,4 +1,4 @@
-(defproject dataworks "0.3.01-alpha"
+(defproject dataworks "0.4.0-epsilon"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -18,4 +18,5 @@
                  [juxt/crux-rocksdb "20.04-1.8.1-alpha"]]
   :main ^:skip-aot dataworks.core
   :target-path "target/%s"
+  :plugins  [[lein-cljfmt "0.6.7"]]
   :profiles {:uberjar {:aot :all}})

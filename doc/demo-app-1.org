@@ -34,7 +34,7 @@ Of the four of them, only the Transformer is actually a pure function, and even 
 
 We'll go through each of the four by providing an actual meaningful example, as well as some exposition on what each one is meant to do, and not to do. Though again, this is clojure. You're allowed more flexibility than with any other language, or application framework, or db/stored-procedure thing. With great power comes great responsibility, and how you architect your Dataworks app is ultimately up to you.
 
-** The Collector
+* The Collector
 The Collector is arguably the most fundamental of the four types of Stored Functions in Dataworks. Not in any kind of fancy shmancy programming sense. This isn't a Rich Hickey talk, and I'm not nearly so sophisticated. Dataworks was conceived as a way to create a new API endpoint for your application without taking down your entire app and redeoploying it. To do that, I came up with the collector.
 
 So what the hell is a Collector? A Collector is an API endpoint. It's a web address, along with some functions that say what happens when someone uses that web address. When you add a collector you add an endpoint to your API while your API is running, and when you change a collector, you change what that API endpoint does while the API is running. Pretty neat huh? We use a library called Yada to tell Dataworks what to do when a request is made of our endpoint. A collector is a Yada Resource. And a Yada Resource is a map of functions and other info about things like authentication, and a brief description.

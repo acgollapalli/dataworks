@@ -37,10 +37,10 @@
 
 (defn evalidate [params]
   (if-vector-conj params
-    "params"
-    (->? params
-         evals?
-         function?)))
+                  "params"
+                  (->? params
+                       evals?
+                       function?)))
 
 (defn add-transactor!
   ([{:transactor/keys [name function] :as params}]
@@ -58,11 +58,11 @@
 (defn db-fy
   [params]
   (if-vector-first params
-    db-fy
-    {:crux.db/id (keyword "transactor" (:name params))
-     :transactor/name (keyword (:name params))
-     :transactor/function (:function params)
-     :stored-function/type :transactor}))
+                   db-fy
+                   {:crux.db/id (keyword "transactor" (:name params))
+                    :transactor/name (keyword (:name params))
+                    :transactor/function (:function params)
+                    :stored-function/type :transactor}))
 
 (defn create-transactor! [transactor]
   (->? transactor

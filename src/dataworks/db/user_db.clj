@@ -8,9 +8,9 @@
 
 (def kafka-settings
   (if-let [settings   (-> "config.edn"
-      slurp
-      read-string
-      :kafka-settings)]
+                          slurp
+                          read-string
+                          :kafka-settings)]
     settings
     {:crux.kafka/bootstrap-servers "localhost:9092"
      :crux.kafka/tx-topic "dataworks.crux-transaction-log"

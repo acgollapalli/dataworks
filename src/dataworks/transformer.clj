@@ -1,5 +1,6 @@
 (ns dataworks.transformer
   (:require
+   [core.async :refer [<! >! go-loop sub]]
    [dataworks.common :refer :all]
    [dataworks.db.app-db :refer :all]
    [dataworks.transformers :refer [transformer-ns]]
@@ -20,10 +21,10 @@
 
 (defn evalidate [params]
   (if-vector-conj params
-    "params"
-    (->? params
-         evals?
-         function?)))
+                  "params"
+                  (->? params
+                       evals?
+                       function?)))
 
 (defn add-transformer!
   ([{:transformer/keys [name function] :as params}]
@@ -41,11 +42,11 @@
 (defn db-fy
   [params]
   (if-vector-first params
-    db-fy
-    {:crux.db/id (get-entity-param (:name params) :transformer)
-     :transformer/name (keyword (:name params))
-     :transformer/function (:function params)
-     :stored-function/type :transformer}))
+                   db-fy
+                   {:crux.db/id (get-entity-param (:name params) :transformer)
+                    :transformer/name (keyword (:name params))
+                    :transformer/function (:function params)
+                    :stored-function/type :transformer}))
 
 (defn create-transformer! [transformer]
   (->? transformer
@@ -80,7 +81,22 @@
         (if (every? #(= (:status %) :success) status)
           (println "Transformers Started!")
           (println "Transformers Failed to Start:"
-                   (map :name status))))))
+                   (map :name status))))
+      (let [transformer-chan (chan)]
+        (sub function-pub :transformer transformer-chan)
+        (go-loop []
+          (let [{:keys [id]} (<! transformer-chan)]
+            (add-transformer! (get-stored-function id))
+            (doseq
+             [[function type] (query {:find '[e type]
+                                      :where
+                                      [['e
+                                        :stored-function/dependencies
+                                        id]
+                                       ['e :stored-function/type 'type]]})]
+              (>! function-chan {:crux.db/id function
+                                 :stored-function/type type})))
+          (recur)))))
 
 (defstate transformer-state
   :start (start-transformers!)

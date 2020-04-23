@@ -18,12 +18,12 @@
   (keyword "heartbeat" uuid))
 
 (def heartbeat-duration
- (if-let [duration (-> "config.edn"
+  (if-let [duration (-> "config.edn"
                         slurp
                         read-string
                         :heartbeat-duration)]
-   duration
-   (tick/new-duration 1 :seconds)))
+    duration
+    (tick/new-duration 1 :seconds)))
 
 (def heartbeat-delay
   (int
@@ -34,10 +34,10 @@
   (let [app-beat (entity :dataworks/heartbeat)]
     (if app-beat
       (submit-tx [[:crux.tx/cas
-                 app-beat
-                 (update app-beat
-                         :dataworks/nodes
-                         #(conj % node-id))]])
+                   app-beat
+                   (update app-beat
+                           :dataworks/nodes
+                           #(conj % node-id))]])
       (submit-tx [[:crux.tx/put
                    {:crux.db/id :dataworks/heartbeat
                     :dataworks/nodes [node-id]
@@ -45,15 +45,15 @@
                                         (tick/now))}]]))))
 
 (defn send-heartbeat []
-   (submit-tx [[:crux.tx/put
-                 {:crux.db/id node-id
-                  :node/status :up
-                  :node/heartbeat heartbeat-id}]
-                [:crux.tx/put
-                 {:crux.db/id heartbeat-id}
-                 (tick/inst
-                  (tick/+ (tick/now)
-                          heartbeat-duration))]]))
+  (submit-tx [[:crux.tx/put
+               {:crux.db/id node-id
+                :node/status :up
+                :node/heartbeat heartbeat-id}]
+              [:crux.tx/put
+               {:crux.db/id heartbeat-id}
+               (tick/inst
+                (tick/+ (tick/now)
+                        heartbeat-duration))]]))
 
 (defn missing-siblings? [brother sister
                          sister's-husband brother-in-law]
@@ -64,12 +64,12 @@
                                       [heart :crux.db/id]]}))
         missing-siblings (filter #(contains?
                                    missing-nodes
-                                    %)
+                                   %)
                                  #{brother sister
                                    sister's-husband
                                    brother-in-law})]
-  (if (not (empty? missing-siblings))
-    (into #{} missing-siblings))))
+    (if (not (empty? missing-siblings))
+      (into #{} missing-siblings))))
 
 (defn take-over-responsibility [[responsibility]]
   (let [sibling's-responsibility (entity responsibility)
@@ -77,19 +77,19 @@
                            sibling's-responsibility
                            :responsibility/node
                            node-id)]
-   (submit-tx [[:crux.db/cas
-                sibling's-responsibility
-                my-responsibility]])))
+    (submit-tx [[:crux.db/cas
+                 sibling's-responsibility
+                 my-responsibility]])))
 
 (defn take-over-for-sibling [sibling]
   (map take-over-responsibility
-      (query '{:find [responsibility]
-           :where [responsibility :resposibility/node sibling]})))
+       (query '{:find [responsibility]
+                :where [responsibility :resposibility/node sibling]})))
 
 (defn check-on-siblings []
   (let [nodes (query '{:find [nodes]
-                     :where [[e :crux.db/id :dataworks/heartbeat]
-                             [e :dataworks/nodes nodes]]})]
+                       :where [[e :crux.db/id :dataworks/heartbeat]
+                               [e :dataworks/nodes nodes]]})]
     (if-let [index (get
                     (zipmap nodes
                             (range (count nodes)))
@@ -108,17 +108,17 @@
                               sister's-husband
                               brother-in-law)]
         (when missing-siblings
-         (when (contains? missing-siblings brother)
-           (take-over-for-sibling brother))
-         (when (and
-                (contains? missing-siblings sister)
-                (contains? missing-siblings sister's-husband))
-           (take-over-for-sibling sister))
-         (when (and
-                (contains? missing-siblings sister)
-                (contains? missing-siblings sister's-husband)
-                (contains? missing-siblings brother-in-law))
-           (take-over-for-sibling sister's-husband)))))))
+          (when (contains? missing-siblings brother)
+            (take-over-for-sibling brother))
+          (when (and
+                 (contains? missing-siblings sister)
+                 (contains? missing-siblings sister's-husband))
+            (take-over-for-sibling sister))
+          (when (and
+                 (contains? missing-siblings sister)
+                 (contains? missing-siblings sister's-husband)
+                 (contains? missing-siblings brother-in-law))
+            (take-over-for-sibling sister's-husband)))))))
 
 (defn enter-the-heartbeat
   ;; WhoOoah. I'm gonna take my chances right now

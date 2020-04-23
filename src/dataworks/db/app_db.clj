@@ -112,8 +112,8 @@
                       (second params)
                       db-fn])]
         (crux/await-tx app-db
-         (crux/submit-tx app-db [tx])
-         #time/duration "PT30S"))
+                       (crux/submit-tx app-db [tx])
+                       #time/duration "PT30S"))
       success
       (catch Exception e
         {:status :failure

@@ -57,24 +57,25 @@
 
 (defn valid-path? [params]
   (if-vector-first params
-    valid-path?
-    (let [path (:path params)
-          valid-path (validate-path path)]
-      (if valid-path
-        (assoc params :path valid-path)
-        {:status :failure
-         :message :invalid-path
-         :details path})) ))
+                   valid-path?
+                   (let [path (:path params)
+                         valid-path (validate-path path)]
+                     (if valid-path
+                       (assoc params :path valid-path)
+                       {:status :failure
+                        :message :invalid-path
+                        :details path}))))
 
 ;; TODO create separate path document to avoid race condition.
 (defn other-collector-with-path? [{:keys [path] :as collector}]
   (println "Checking for duplicate paths:" path)
-  (if-let [other-collectors (not-empty
-                             (crux/q
-                              (crux/db app-db)
-                              {:find ['e]
-                               :where [['e :stored-function/type :collector]
-                                       ['e :collector/path path]]}))]
+  (if-let [other-collectors
+           (not-empty
+            (crux/q
+             (crux/db app-db)
+             {:find ['e]
+              :where [['e :stored-function/type :collector]
+                      ['e :collector/path path]]}))]
     {:status :failure
      :message :collector-with-path-already-exists
      :details other-collectors})
@@ -85,24 +86,28 @@
    CURRENTLY UNSAFE (but necessary)"
   [params]
   (if-vector-conj params
-    "params"
-    (binding [*ns* collector-ns]
-      (println "Evalidating" (:collector/name params))
-      (try (yada/resource (eval (:collector/resource params)))
-           (catch Exception e {:status :failure
-                             :message :unable-to-evalidate-resource
-                             :details (.getMessage e)})))))
+                  "params"
+                  (binding [*ns* collector-ns]
+                    (println "Evalidating"
+                             (:collector/name params))
+                    (try (yada/resource
+                          (eval
+                           (:collector/resource params)))
+                         (catch Exception e
+                           {:status :failure
+                            :message :unable-to-evalidate-resource
+                            :details (.getMessage e)})))))
 
 (defn db-fy
   [params]
   (if-vector-first params
-    db-fy
-    {:crux.db/id (keyword "collector"
-                          (:name params))
-     :collector/name (keyword (:name params))
-     :collector/resource (:resource params)
-     :collector/path (:path params)
-     :stored-function/type :collector}))
+                   db-fy
+                   {:crux.db/id (keyword "collector"
+                                         (:name params))
+                    :collector/name (keyword (:name params))
+                    :collector/resource (:resource params)
+                    :collector/path (:path params)
+                    :stored-function/type :collector}))
 
 (defn add-collector!
   ([{:collector/keys [resource] :as collector}]
