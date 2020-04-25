@@ -1,17 +1,17 @@
 
 # Table of Contents
 
-1.  [Introduction](#org428047c)
-2.  [Now, what is Dataworks, and why am I here?](#orgc4df826)
-3.  [The Collector](#org3f2e728)
-4.  [The Transactor](#org2ba9088)
-5.  [The Internal](#orgaf0435f)
-6.  [The Transformer](#org0d7f780)
-7.  [Naming things.](#org8f2e275)
+1.  [Introduction](#org1622c4d)
+2.  [Now, what is Dataworks, and why am I here?](#orgecefd69)
+3.  [The Collector](#org9a7edf0)
+4.  [The Transactor](#org8773b92)
+5.  [The Internal](#org2a86633)
+6.  [The Transformer](#org98b6295)
+7.  [Naming things.](#org3af6faf)
 
 
 
-<a id="org428047c"></a>
+<a id="org1622c4d"></a>
 
 # Introduction
 
@@ -32,7 +32,7 @@ What do we assume you know?
 3.  What Kafka is. Again YouTube is sufficient. You just need the basics. It doesn&rsquo;t come up in part 1, but it does in part 2.
 
 
-<a id="orgc4df826"></a>
+<a id="orgecefd69"></a>
 
 # Now, what is Dataworks, and why am I here?
 
@@ -56,7 +56,7 @@ Of the four of them, only the Transformer is actually a pure function, and even 
 We&rsquo;ll go through each of the four by providing an actual meaningful example, as well as some exposition on what each one is meant to do, and not to do. Though again, this is clojure. You&rsquo;re allowed more flexibility than with any other language, or application framework, or db/stored-procedure thing. With great power comes great responsibility, and how you architect your Dataworks app is ultimately up to you.
 
 
-<a id="org3f2e728"></a>
+<a id="org9a7edf0"></a>
 
 # The Collector
 
@@ -148,7 +148,7 @@ Resource:
                            (tick/inst (:alert/next-event tx-event))]]))
                 tx-event))}}}
 
-Well that&rsquo;s all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you&rsquo;d write everyday at the repl.
+Well that&rsquo;s all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you&rsquo;d write everyday at the repl. It&rsquo;s included in dataworks.common so you&rsquo;ll be able to use it with every stored function.
 
     (defmacro ->let [& forms]
       (loop [lets []
@@ -300,7 +300,7 @@ query:
 So what have we done in 63 lines? We&rsquo;ve create an api endpoint that accepts event data from arbitrarily many different functions, and creates alerts for them if they don&rsquo;t respond in a certain amount of time. Now we need to figure out how to actually tell somebody about these alerts.
 
 
-<a id="org2ba9088"></a>
+<a id="org8773b92"></a>
 
 # The Transactor
 
@@ -336,7 +336,7 @@ Well, isn&rsquo;t that simple! You call it using the transact! function which is
 Pretty nifty, right? You can do it as many times as you want, and it all happens asyncronously, so it won&rsquo;t block the rest of your function.
 
 
-<a id="orgaf0435f"></a>
+<a id="org2a86633"></a>
 
 # The Internal
 
@@ -468,7 +468,7 @@ function:
           :next-run (tick/new-duration 1 :minutes)})))
 
 
-<a id="org0d7f780"></a>
+<a id="org98b6295"></a>
 
 # The Transformer
 
@@ -497,7 +497,7 @@ And then would call it like this:
 That&rsquo;s it. The transformers block is available in every stored function namespace (including the transformers one) and it grabs the functions you want, and makes them available in the scope of the transformers block. The transformers block also puts everything in an implict ->let block, so you can have your defs and defns in that block with no trouble. As always, it&rsquo;s worthwhile to read the code for all these things. Dataworks is pretty small, so you shouldn&rsquo;t hesitate in that regard.
 
 
-<a id="org8f2e275"></a>
+<a id="org3af6faf"></a>
 
 # Naming things.
 

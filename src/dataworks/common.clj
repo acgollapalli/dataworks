@@ -274,6 +274,30 @@
            (recur (next fields))))
        m))))
 
+(defn empty-field-collection?
+  "Checks to see whether the specified paramaters are empty,
+   and whether they are collections. m must be a map.
+   fields must be keywords"
+  ([m & fields]
+   (loop [fields fields]
+     (if fields
+       (let [field (first fields)]
+         (println "Checking for empty collection:" field)
+         (if-let let [val (get-in m (vec-ify field))]
+           (cond (not (coll? val))
+                 (failure
+                  (generate-message
+                   field "%-must-be-collection"))
+                 (empty? val)
+                 (failure
+                  (generate-message
+                   field "%-cannot-be-empty"))
+                 :else (recur (next fields)))
+           (failure
+            (generate-message
+             field "%-required"))))
+       m))))
+
 (defn valid-name?
   [{:keys [name] :as params}]
   (println "validating name" name)

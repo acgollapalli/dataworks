@@ -127,7 +127,7 @@ Resource:
             tx-event))}}}
 #+END_SRC
 
-Well that's all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you'd write everyday at the repl.
+Well that's all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you'd write everyday at the repl. It's included in dataworks.common so you'll be able to use it with every stored function.
 
 #+BEGIN_SRC clojure
 (defmacro ->let [& forms]
