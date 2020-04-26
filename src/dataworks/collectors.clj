@@ -8,21 +8,26 @@
                                  submit-tx
                                  query
                                  entity]]
-   [dataworks.stream-utils :refer [produce!]]
+   [dataworks.streams :refer [stream!]]
    [dataworks.time-utils :refer [consume-time]]
-   [dataworks.transactor :refer [transact!]]
-   [dataworks.transformer :refer [transformers]]
+   [dataworks.transactors :refer [transact!]]
+   [dataworks.transformers :refer [transformers]]
    [crux.api :as crux]
    [mount.core :refer [defstate] :as mount]
    [tick.alpha.api :as tick]
    [yada.yada :refer [as-resource] :as yada]
    [schema.core :refer [defschema] :as schema]))
 
-(defstate db
-  :start user-db
-  :end nil)
 
 (def collector-ns *ns*)
+
+
+(def resource-map
+  (atom
+   {}))
+
+(def atomic-routes
+  (atom {}))
 
 ;; This is where the actual collectors live.
 ;; They only live here at runtime.

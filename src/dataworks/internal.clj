@@ -8,9 +8,10 @@
    [dataworks.time-utils :refer :all]
    [dataworks.heartbeat :as heartbeat]
    [dataworks.db.app-db :refer :all]
-   [dataworks.internals :refer [internal-ns]]
-   [dataworks.stream-utils :refer [consumer-instance
-                                   consume! produce!]]
+   [dataworks.internals :refer [internal-ns
+                                internal-map]]
+   [dataworks.stream :refer [consume! produce!
+                             consumer-instance!]]
    [mount.core :refer [defstate] :as mount]
    [tick.alpha.api :as tick]
    [yada.yada :refer [as-resource] :as yada]))
@@ -32,10 +33,6 @@
 
 ;; Example: TODO
 
-
-(def internal-map
-  (atom {}))
-
 (defn evals? [{:internal/keys [name function] :as params}]
   (println "evalidating" name)
   (binding [*ns* internal-ns]
@@ -52,10 +49,6 @@
                        evals?
                        function?
                        one-arg?)))
-
-(defn get-millis [t]
-  (tick/millis (tick/between (tick/now)
-                             (consume-time t))))
 
 (defn db-fy [params]
   (if-vector-first params

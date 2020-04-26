@@ -9,7 +9,8 @@
                                 added-to-db?]]
    [dataworks.authentication :as auth]
    [dataworks.common :refer :all]
-   [dataworks.transactors :refer [transactor-ns]]
+   [dataworks.transactors :refer [transactor-ns
+                                  transactor-map]]
    [mount.core :refer [defstate] :as mount]))
 
 ;; A transactor does a thing when called.
@@ -21,9 +22,6 @@
 ;; ex: (transact! :your-transactor arg1 arg2)
 ;; The transactor name may be a clojure keyword or a string.
 ;; The transact! call is available to all other stored functions.
-
-(def transactor-map
-  (atom {}))
 
 ;; TODO Add validation here.
 (defn evals? [{:transactor/keys [name function] :as params}]
@@ -100,6 +98,3 @@
 (defstate transactor-state
   :start (start-transactors!)
   :stop (reset! transactor-map {}))
-
-(defn transact! [tname & args]
-  (go (((keyword tname) @transactor-map) args)))

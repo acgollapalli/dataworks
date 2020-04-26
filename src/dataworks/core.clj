@@ -41,14 +41,14 @@
 (def states
   ["#'dataworks.db.app-db/app-db"
    "#'dataworks.db.user-db/user-db"
-   "#'dataworks.collectors/db"
    "#'dataworks.collector/collector-state"
    "#'dataworks.transactor/transactor-state"
    "#'dataworks.internal/internal-state"
-   "#'dataworks.stream-utils/producers"
    "#'dataworks.heartbeat/heartbeat-chan"
    "#'dataworks.heartbeat/heartbeat"
-   "#'dataworks.db.transformer/transformer-state"
+   "#'dataworks.transformer/transformer-state"
+   "#'dataworks.stream/stream-state"
+   "#'dataworks.stream/producers"
    "#'dataworks.core/svr"])
 
 (defn go []
@@ -67,7 +67,11 @@
   (do
     (go)
     (print "Herro")
+    (thread/sleep 100) ;; remove these in prod.
     (print " .")
+    (thread/sleep 100)
     (print " .")
+    (thread/sleep 100)
     (print " . ")
+    (thread/sleep 100)
     (println "ZA WARRUDO!!!!!")))

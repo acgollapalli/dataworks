@@ -1,13 +1,11 @@
 (ns dataworks.transformer
   (:require
-   [core.async :refer [<! >! go-loop sub]]
+   [clojure.core.async :refer [<! >! go-loop sub]]
    [dataworks.common :refer :all]
    [dataworks.db.app-db :refer :all]
-   [dataworks.transformers :refer [transformer-ns]]
+   [dataworks.transformers :refer [transformer-ns
+                                   transformer-map]]
    [mount.core :refer [defstate]]))
-
-(def transformer-map
-  (atom {}))
 
 ;; TODO Add validation here.
 (defn evals? [{:transformer/keys [name function] :as params}]
@@ -101,13 +99,3 @@
 (defstate transformer-state
   :start (start-transformers!)
   :stop (reset! transformer-map {}))
-
-(defn def-ify [xformer]
-  `(def ~xformer
-     ~(get @transformer-map (keyword xformer))))
-
-(defmacro transformers
-  [xformers & forms]
-  (concat '(->let)
-          (map def-ify xformers)
-          forms))

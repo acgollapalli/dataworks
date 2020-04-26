@@ -9,7 +9,9 @@
                                 add-current-stored-function
                                 function-already-exists?
                                 added-to-db?]]
-   [dataworks.collectors :refer [collector-ns]]
+   [dataworks.collectors :refer [collector-ns
+                                 resource-map
+                                 atomic-routes]]
    [dataworks.common :refer :all]
    [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [as-resource] :as yada]))
@@ -37,13 +39,6 @@
 ;;                                                   (transact! :text body)
 ;;                                                   \"success!\"))}}}"
 ;; }
-
-(def resource-map
-  (atom
-   {}))
-
-(def atomic-routes
-  (atom {}))
 
 (defn validate-path [path]
   (println "Validating path")

@@ -84,3 +84,11 @@
                                           (t/new-period 1 time))
                                      (t/time "00:00"))) ;; chucking out exceptions
                                    (catch Exception _)))))))) ;; like this is probably bad
+
+
+
+(defn get-millis [t]
+  (if-let [time (consume-time t)]
+  (t/millis (t/between (t/now)
+                       time)
+            (t/now))))

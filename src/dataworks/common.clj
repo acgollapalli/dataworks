@@ -168,7 +168,7 @@
   "failure status message. takes 1-2 args"
   (partial request-status :failure))
 
-(def succcess
+(def success
   "success status message. takes 1-2 args"
   (partial request-status :success))
 
@@ -283,7 +283,7 @@
      (if fields
        (let [field (first fields)]
          (println "Checking for empty collection:" field)
-         (if-let let [val (get-in m (vec-ify field))]
+         (if-let [val (get-in m (vec-ify field))]
            (cond (not (coll? val))
                  (failure
                   (generate-message

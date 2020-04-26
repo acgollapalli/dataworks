@@ -7,9 +7,9 @@
    [dataworks.db.app-db :refer [get-stored-function
                                 get-stored-functions]]
    [dataworks.collector :refer [create-collector!
-                                update-collector!
-                                atomic-routes
-                                resource-map]]
+                                update-collector!]]
+   [dataworks.collectors :refer [atomic-routes
+                                 resource-map]]
    [dataworks.internal :refer [create-internal!
                                update-internal!]]
    [dataworks.transactor :refer [create-transactor!
