@@ -1,7 +1,7 @@
 (ns dataworks.db.app-db
   (:require
    [clojure.java.io :as io]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [crux.api :as crux]
    [tick.alpha.api :as tick]
    [mount.core :refer [defstate]]))

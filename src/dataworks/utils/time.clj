@@ -1,7 +1,7 @@
-(ns dataworks.time-utils
+(ns dataworks.utils.time
   (:require
    [cheshire.generate :refer [add-encoder encode-str]]
-   [dataworks.common :refer [read-string]]
+   [dataworks.utils.common :refer [read-string]]
    [tick.alpha.api :as t :refer [instant]])) ;; everywhere else it's tick,
                                              ;; but we use it too damn often here
 

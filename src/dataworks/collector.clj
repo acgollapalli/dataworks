@@ -12,7 +12,7 @@
    [dataworks.collectors :refer [collector-ns
                                  resource-map
                                  atomic-routes]]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [as-resource] :as yada]))
 

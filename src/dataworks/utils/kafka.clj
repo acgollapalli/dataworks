@@ -1,4 +1,4 @@
-(ns dataworks.kafka-utils
+(ns dataworks.utils.kafka
   (:require
    [clojure.core.async :refer [go]]
    [mount.core :refer [defstate]]

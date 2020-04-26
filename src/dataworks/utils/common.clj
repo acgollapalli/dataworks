@@ -1,4 +1,4 @@
-(ns dataworks.common
+(ns dataworks.utils.common
   (:require
    [clojure.string :as string]
    [clojure.pprint :refer [pprint]]

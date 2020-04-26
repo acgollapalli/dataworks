@@ -3,13 +3,13 @@
    [clojure.pprint :refer [pprint]]
    [dataworks.authentication :refer [authenticate
                                      authorize]]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [dataworks.db.user-db :refer [user-db
                                  submit-tx
                                  query
                                  entity]]
    [dataworks.streams :refer [stream!]]
-   [dataworks.time-utils :refer [consume-time]]
+   [dataworks.utils.time :refer [consume-time]]
    [dataworks.transactors :refer [transact!]]
    [dataworks.transformers :refer [transformers]]
    [crux.api :as crux]

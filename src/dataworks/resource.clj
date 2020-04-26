@@ -2,7 +2,7 @@
   (:require
    [bidi.bidi :as bidi]
    [clojure.pprint :refer [pprint] :as p]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [dataworks.authentication :as auth]
    [dataworks.db.app-db :refer [get-stored-function
                                 get-stored-functions]]

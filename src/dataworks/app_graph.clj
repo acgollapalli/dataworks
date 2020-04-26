@@ -3,7 +3,7 @@
    [clojure.core.async :refer [>! <! go-loop chan close!
                                sliding-buffer dropping-buffer
                                take! go mult put! tap]]
-   [dataworks.kafka-utils :refer [consumer-instance]]
+   [dataworks.utils.kafka :refer [consumer-instance]]
    [dataworks.stream :as stream]
    [mount.core :refer [defstate]]))
 
@@ -30,22 +30,20 @@
                        "dataworks.internal.functions"
                        dataworks.heartbeat/uuid)}
     ;; coordinates internals
-    {:stream/name :kafka/dataworks.internal.internals
-     :stream/buffer 10}
     {:stream/name :stream/responsibilities}
     {:stream/name :stream/internal.events
      :stream/upstream #{:stream/responsibilities
                         :kafka/dataworks.internal.internals}})
-   ;; heartbeat
+   ;; heartbeat goea here
+   ;; Below we create streams for each of our stored function
+   ;; types, so they know when a function has been updated on
+   ;; another node.
    (map fn-stream
         (list
          "collector"
-         "internal"
          "stream"
          "transactor"
-         "transformer"))
-
-   ))
+         "transformer"))))
 
 (defn get-node
   [stream buffer transducer error-handler instance]

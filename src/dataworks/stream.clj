@@ -4,9 +4,9 @@
                                sliding-buffer dropping-buffer
                                take! go mult mix put! tap
                                admix]]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [dataworks.db.app-db :refer :all]
-   [dataworks.kafka-utils :require [consumer-instance
+   [dataworks.utils.kafka :require [consumer-instance
                                     consume-records
                                     produce!]
                           :as kafka]

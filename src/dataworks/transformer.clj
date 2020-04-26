@@ -1,7 +1,7 @@
 (ns dataworks.transformer
   (:require
    [clojure.core.async :refer [<! >! go-loop sub]]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [dataworks.db.app-db :refer :all]
    [dataworks.transformers :refer [transformer-ns
                                    transformer-map]]
