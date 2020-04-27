@@ -44,8 +44,6 @@
    "#'dataworks.collector/collector-state"
    "#'dataworks.transactor/transactor-state"
    "#'dataworks.internal/internal-state"
-   "#'dataworks.heartbeat/heartbeat-chan"
-   "#'dataworks.heartbeat/heartbeat"
    "#'dataworks.transformer/transformer-state"
    "#'dataworks.stream/stream-state"
    "#'dataworks.stream/producers"
@@ -65,7 +63,7 @@
   "I don't do a whole lot ... yet."
   [& args]
   (do
-    (go)
+    (mount/start)
     (print "Herro")
     (thread/sleep 100) ;; remove these in prod.
     (print " .")

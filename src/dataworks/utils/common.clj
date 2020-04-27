@@ -459,6 +459,29 @@
                (next values)))
       coll)))
 
+(defn select-ns-keys
+  "ns must be a string"
+  [ns map]
+  (into
+   {}
+   (filter
+    #(= ns
+        (namespace
+         (first %))))
+   map))
+
+(defn exclude-ns-keys
+  "ns must be a string"
+  [ns map]
+  (into
+   {}
+   (filter
+    #(not= ns
+           (namespace
+            (first %))))
+   map))
+
+
 (defn dependencies?
   [params function-type]
   (if-vector-first params
@@ -485,21 +508,21 @@
                      (paths edges start end (list start))))
   ([edges start end l]
    (let [deps (filter #(= (first l)
-                              (last %))
+                          (last %))
                       edges)
          set-deps (into #{}
                         (map first deps))]
      (if (some some? (map set-deps l))
        (throw (Exception. (str "circular dependency: "
                                (conj l
-                                     (first
-                                      (filter some?
-                                             (map set-deps l))))))))
+                                     (some identity
+                                           (map set-deps
+                                                l)))))))
      (if-not (= (first l) end)
        (map (partial paths edges start end)
-        (map #(conj l %)
-             (map first
-                  deps)))
+            (map #(conj l %)
+                 (map first
+                      deps)))
        l))))
 
 (defn order-nodes
