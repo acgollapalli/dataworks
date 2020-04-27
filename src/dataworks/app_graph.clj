@@ -19,64 +19,34 @@
   (if-let [channel (get-in @nodes [stream :input])]
     (go (>! channel data))))
 
-(defn fn-stream
-  [fn-type start-fn]
-  {:stream/name (keyword "stream" fn-type)
-   :stream/buffer 10
-   :stream/upstream
-   #{:stream/internal.functions}
-   :stream/transducer (comp
-                       (filter
-                        #(= (:stored-function/type
-                             %)
-                            (keyword fn-type)))
-                       (map  ;; TODO add error handling.
-                        (fn [{:crux.db/keys [id]}]
-                          (start-fn (entity id)))))})
-
 (def streams
-  (concat
-   (list
-    ;; let's us know when functions need to be updated
-    {:stream/name :kafka/dataworks.internal.functions
-     :stream/buffer 10
-     :stream/instance (consumer-instance
-                       "dataworks.internal.functions"
-                       nil
-                       :edn
-                       {"group.id"
-                        (str (java.util.UUID/randomUUID))})
-     :stream/transducer (map :value)}
+  (list
+   ;; let's us know when functions need to be updated
+   {:stream/name :kafka/dataworks.internal.functions
+    :stream/buffer 10
+    :stream/instance (consumer-instance
+                      "dataworks.internal.functions"
+                      nil
+                      :edn
+                      {"group.id"
+                       (str (java.util.UUID/randomUUID))})
+    :stream/transducer (map :value)}
 
-    {:stream/name :stream/internal.functions
-     :stream/upstream #{:kafka/dataworks.internal.functions}
-     :stream/buffer 1000
-     :stream/transducer (map
-                         (fn [{:crux.db/keys [id]}]
-                           (doseq [dep (order-nodes
-                                        name
-                                        (get-dependencies
-                                         id))]
-                             (stream!
-                              ;; will this cause deps to go
-                              ;; out of order if there are more
-                              ;; that 1000 deps to handle?
-                              :stream/internal.functions
-                              dep))))})
-   ;; Below we create streams for each of our stored function
-   ;; types, so they know when a function has been updated on
-   ;; another node.
-   (map fn-stream
-        (list
-         "collector"
-         "stream"
-         "transactor"
-         "transformer")
-        (list
-         dataworks.collector/add-collector!
-         dataworks.stream/start-stream!
-         dataworks.transactor/add-transactor!
-         dataworks.transformer/add-transformer!))))
+   {:stream/name :stream/internal.functions
+    :stream/upstream #{:kafka/dataworks.internal.functions}
+    :stream/buffer 1000
+    :stream/transducer (map
+                        (fn [{:crux.db/keys [id]}]
+                          (doseq [dep (order-nodes
+                                       name
+                                       (get-dependencies
+                                        id))]
+                            (stream!
+                             ;; will this cause deps to go
+                             ;; out of order if there are more
+                             ;; that 1000 deps to handle?
+                             :stream/internal.functions
+                             dep))))}))
 
 (def edges
   (into []
@@ -90,7 +60,7 @@
                 (map
                  (juxt
                   :stream/name
-                  (fn [{:stream/keys [name buffer transducer
+                  (fn [{:stream/keys [buffer transducer
                                       error-handler] :as stream}]
                     (stream/get-node stream buffer transducer
                                      error-handler))))

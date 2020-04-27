@@ -102,9 +102,11 @@
 
 (defn get-node
   ;; TODO fix this to use maps instead of argument lists
-  ([stream buffer transducer error-handler]
+  ([{:stream/keys [name] :as stream} buffer transducer
+    error-handler]
    (get-node stream buffer transducer error-handler nil))
-  ([stream buffer transducer error-handler instance]
+  ([{:stream/keys [name] :as stream} buffer
+    transducer error-handler instance]
    (case (namespace name)
      "kafka" (apply handle-topic
                     (if-conj

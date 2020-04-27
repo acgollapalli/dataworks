@@ -2,7 +2,9 @@
   (:require
    [dataworks.utils.common :refer :all]
    [dataworks.db.app-db :refer :all]
-   [dataworks.app-graph :refer [stream!]]
+   [dataworks.utils.stream :as stream]
+   [dataworks.app-graph :refer [stream!
+                                node-state]]
    [dataworks.transformers :refer [transformer-ns
                                    transformer-map]]
    [mount.core :refer [defstate]]))
@@ -76,7 +78,22 @@
        added-to-db?
        apply-transformer!))
 
+(defn create-stream []
+  (stream/apply-graph!
+   node-state
+   (stream/handle-stream
+    nil 10
+    (comp
+     (filter
+      #(= (:stored-function/type %)
+          (keyword :transformer)))
+     (map  ;; TODO add error handling.
+      (fn [{:crux.db/keys [id]}]
+        (add-transformer! (entity id)))))
+    nil)))
+
 (defn start-transformers! []
+  (create-stream)
   (do (println "Starting Transformers!")
       (let [trs (get-stored-functions :transformer)
             status (map add-transformer! trs)]

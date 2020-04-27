@@ -66,7 +66,7 @@
   [[{:stream/keys [name] :as stream}
     [buffer transducer error-handler]]]
   (let [ns (namespace name)
-        node (get-node)
+        node (get-node stream buffer transducer error-handler)
         subgraph (get-edges stream)]
     (if (not= (:status node) :failure)
       (do ;; does not need to be dosync
@@ -172,6 +172,18 @@
   ;; it anywhere except on startup.
   :start
   (do
+   (apply-graph!
+   app/node-state
+   (handle-stream
+    nil 10
+    (comp
+     (filter
+      #(= (:stored-function/type %)
+          (keyword :stream)))
+     (map  ;; TODO add error handling.
+      (fn [{:crux.db/keys [id]}]
+        (start-stream! (entity id)))))
+    nil))
     (map start-stream! (get-stored-functions :stream))
     (apply-graph! @edges @nodes))
   :stop

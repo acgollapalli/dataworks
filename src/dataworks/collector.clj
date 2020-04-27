@@ -2,9 +2,12 @@
   (:require
    [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
-   [dataworks.app-graph :refer [stream!]]
+   [dataworks.app-graph :refer [node-state
+                                stream!]]
+   [dataworks.utils.stream :as stream]
    [dataworks.authentication :as auth]
    [dataworks.db.app-db :refer [app-db
+                                entity
                                 get-stored-function
                                 get-stored-functions
                                 add-current-stored-function
@@ -127,8 +130,23 @@
                          :stored-function/type]))
   (apply add-collector! params))
 
+(defn create-stream []
+  (stream/apply-graph!
+   node-state
+   (stream/handle-stream
+    nil 10
+    (comp
+     (filter
+      #(= (:stored-function/type %)
+          (keyword :collector)))
+     (map  ;; TODO add error handling.
+      (fn [{:crux.db/keys [id]}]
+        (add-collector! (entity id)))))
+    nil)))
+
 (defn start-collectors! []
   (println "Starting Collectors")
+  (create-stream)
   (let [colls (get-stored-functions :collector)
         status (map add-collector! colls)]
     (if (every? #(= (:status %) :success) status)

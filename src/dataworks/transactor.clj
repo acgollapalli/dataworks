@@ -2,12 +2,15 @@
   (:require
    [clojure.core.async :refer [go] :as async]
    [clojure.pprint :refer [pprint]]
-   [dataworks.app-graph :refer [stream!]]
+   [dataworks.utils.stream :as stream]
+   [dataworks.app-graph :refer [stream!
+                                node-state]]
    [dataworks.db.app-db :refer [get-stored-function
                                 get-stored-functions
                                 add-current-stored-function
                                 function-already-exists?
-                                added-to-db?]]
+                                added-to-db?
+                                entity]]
    [dataworks.authentication :as auth]
    [dataworks.utils.common :refer :all]
    [dataworks.utils.time :refer :all]
@@ -92,7 +95,22 @@
        added-to-db?
        apply-transactor!))
 
+(defn create-stream []
+  (stream/apply-graph!
+   node-state
+   (stream/handle-stream
+    nil 10
+    (comp
+     (filter
+      #(= (:stored-function/type %)
+          (keyword :transactor)))
+     (map  ;; TODO add error handling.
+      (fn [{:crux.db/keys [id]}]
+        (add-transactor! (entity id)))))
+    nil)))
+
 (defn start-transactors! []
+  (create-stream)
   (do (println "Starting Transactors!")
       (let [trs (get-stored-functions :transactor)
             status (map add-transactor! trs)]
