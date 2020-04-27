@@ -10,8 +10,8 @@
                                 update-collector!]]
    [dataworks.collectors :refer [atomic-routes
                                  resource-map]]
-   [dataworks.internal :refer [create-internal!
-                               update-internal!]]
+   [dataworks.stream :refer [create-stream!
+                               update-stream!]]
    [dataworks.transactor :refer [create-transactor!
                                  update-transactor!]]
    [dataworks.transformer :refer [create-transformer!
@@ -21,7 +21,7 @@
 (defn create! [function-type body]
   ((function-type
     {:collector create-collector!
-     :internal create-internal!
+     :stream create-stream!
      :transactor create-transactor!
      :transformer create-transformer!})
    body))
@@ -29,7 +29,7 @@
 (defn update! [function-type name body]
   ((function-type
     {:collector update-collector!
-     :internal update-internal!
+     :stream update-stream!
      :transactor update-transactor!
      :transformer update-transformer!})
    name

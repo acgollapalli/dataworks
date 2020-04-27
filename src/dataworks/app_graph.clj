@@ -5,7 +5,7 @@
                                 get-dependencies]]
    [dataworks.utils.kafka :refer [consumer-instance]]
    [dataworks.utils.common :refer [order-nodes]]
-   [dataworks.stream :as stream]
+   [dataworks.utils.stream :as stream]
    [mount.core :refer [defstate]]))
 
 (def nodes
@@ -78,6 +78,11 @@
          dataworks.transactor/add-transactor!
          dataworks.transformer/add-transformer!))))
 
+(def edges
+  (into []
+        (map stream/get-edges)
+        streams))
+
 (defstate node-state
   :start
   (reset! nodes
@@ -96,8 +101,6 @@
               (map stream/channel-filter
                    (map vals (vals @nodes))))))
 
-(defstate edges
+(defstate edge-state
   :start
-  (into []
-        (map stream/get-edges)
-        streams))
+  (stream/apply-graph! @nodes edges))

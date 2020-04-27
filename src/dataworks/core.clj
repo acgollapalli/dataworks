@@ -46,7 +46,6 @@
    "#'dataworks.internal/internal-state"
    "#'dataworks.transformer/transformer-state"
    "#'dataworks.stream/stream-state"
-   "#'dataworks.stream/producers"
    "#'dataworks.core/svr"])
 
 (defn go []
@@ -65,11 +64,11 @@
   (do
     (mount/start)
     (print "Herro")
-    (thread/sleep 100) ;; remove these in prod.
+    (Thread/sleep 100) ;; remove these in prod.
     (print " .")
-    (thread/sleep 100)
+    (Thread/sleep 100)
     (print " .")
-    (thread/sleep 100)
+    (Thread/sleep 100)
     (print " . ")
-    (thread/sleep 100)
+    (Thread/sleep 100)
     (println "ZA WARRUDO!!!!!")))
