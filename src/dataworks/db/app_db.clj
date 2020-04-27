@@ -119,3 +119,15 @@
         {:status :failure
          :message :db-failed-to-update
          :details (.getMessage e)}))))
+
+(defn get-dependencies
+  [function]
+  (query {:find '[d1 d2]
+          :where '[(depends d1 d0)
+                   [d1 :stored-function/dependencies d2]]
+          :args [{'d0 function}]
+          :rules '[[(depends d1 d2)
+                    [d1 :stored-function/dependencies d2]]
+                   [(depends d1 d2)
+                    [d1 :stored-function/dependencies x]
+                    (depends x d2)]]}))

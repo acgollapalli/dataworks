@@ -25,16 +25,19 @@
   ([consumer-topic name]
    (consumer-instance consumer-topic name :edn))
   ([consumer-topic name deserializer]
-   (let [deserializers {:edn EdnDeserializer
+   (consumer-instance consumer-topic name deserializer nil))
+  ([consumer-topic name deserializer settings]
+    (let [deserializers {:edn EdnDeserializer
                         :json JsonDeserializer}
          consumer-props
          (merge
-          kafka-settings
           {"group.id" (str "dataworks/" name)
            "key.deserializer" (deserializer deserializers)
            "value.deserializer" (deserializer deserializers)
            "auto.offset.reset" "earliest"
-           "enable.auto.commit" "true"})]
+           "enable.auto.commit" "true"}
+          kafka-settings
+          settings)]
      (doto (KafkaConsumer. consumer-props)
        (.subscribe [consumer-topic])))))
 

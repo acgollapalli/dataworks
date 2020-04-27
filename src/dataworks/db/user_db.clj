@@ -1,7 +1,7 @@
 (ns dataworks.db.user-db
   (:require
    [clojure.java.io :as io]
-   [dataworks.common :refer [read-string]]
+   [dataworks.utils.common :refer [read-string]]
    [crux.api :as crux]
    [mount.core :refer [defstate]]
    [tick.alpha.api :as time]))

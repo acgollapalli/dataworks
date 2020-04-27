@@ -2,6 +2,7 @@
   (:require
    [clojure.core.async :refer [go] :as async]
    [clojure.pprint :refer [pprint]]
+   [dataworks.app-graph :refer [stream!]]
    [dataworks.db.app-db :refer [get-stored-function
                                 get-stored-functions
                                 add-current-stored-function
@@ -52,6 +53,10 @@
     :details params}))
 
 (defn apply-transactor! [params]
+  (stream! :kafka/dataworks.internal.functions
+           (select-keys (first params)
+                        [:crux.db/id
+                         :stored-function/type]))
   (apply add-transactor! params))
 
 (defn db-fy

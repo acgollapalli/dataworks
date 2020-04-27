@@ -66,7 +66,7 @@ So what the hell is a Collector? A Collector is an API endpoint. It&rsquo;s a we
 
 Here&rsquo;s the thing, Right you&rsquo;re only allowed to evaluate 1 s-expression. I&rsquo;d be tempted to prtend it&rsquo;s some sort of security thing, but really it&rsquo;s just a limitation we haven&rsquo;t gotten around yet. However, because clojure is clojure, you can create functions inside of functions, and even name them if you do it inside a let macro (if you didn&rsquo;t know let is a macro in clojure). Every stored function lives inside a namespace, and there&rsquo;s a namespace for each type of stored function. This doesn&rsquo;t mean you can call one stored function from another, except for transactors via the &ldquo;transact!&rdquo; function and transformers via the &ldquo;transformers&rdquo; macro. The stored functions are evaluated as anonymous functions, and other means have to be used to refer to them.
 
-Collectors have access to your database (we use a database called Crux, and I&rsquo;ll explain why in a bit) a time library called tick to tell time, a safe read-string so you can accept serialized edn params, the dataworks.common namespace so you can use some of the handy convenience and validation functions I&rsquo;ve written, and yada, so you can make yada resources easily.
+Collectors have access to your database (we use a database called Crux, and I&rsquo;ll explain why in a bit) a time library called tick to tell time, a safe read-string so you can accept serialized edn params, the dataworks.utils.common namespace so you can use some of the handy convenience and validation functions I&rsquo;ve written, and yada, so you can make yada resources easily.
 
 Here&rsquo;s what the namespace looks like:
 
@@ -75,7 +75,7 @@ Here&rsquo;s what the namespace looks like:
        [clojure.pprint :refer [pprint]]
        [dataworks.authentication :refer [authenticate
                                          authorize]]
-       [dataworks.common :refer :all]
+       [dataworks.utils.common :refer :all]
        [dataworks.db.user-db :refer [user-db
                                      submit-tx
                                      query
@@ -148,7 +148,7 @@ Resource:
                            (tick/inst (:alert/next-event tx-event))]]))
                 tx-event))}}}
 
-Well that&rsquo;s all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you&rsquo;d write everyday at the repl. It&rsquo;s included in dataworks.common so you&rsquo;ll be able to use it with every stored function.
+Well that&rsquo;s all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you&rsquo;d write everyday at the repl. It&rsquo;s included in dataworks.utils.common so you&rsquo;ll be able to use it with every stored function.
 
     (defmacro ->let [& forms]
       (loop [lets []
@@ -360,7 +360,7 @@ This lives in the internals namespace, for which the following are provided:
                                      submit-tx
                                      query
                                      entity]]
-       [dataworks.common :refer :all]
+       [dataworks.utils.common :refer :all]
        [cheshire.core :as cheshire]
        [crux.api :as crux]
        [dataworks.transactor :refer [transact!]]

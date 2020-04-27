@@ -19,9 +19,6 @@
 
 ;; With thanks to perkss for his excellent kafka tutorial repo.
 
-;; contains core channels for streams
-;; {:stream/node {:input }}
-
 (defn get-edges
   [{:stream/keys [name upstream]}]
   (map
@@ -65,6 +62,10 @@
 
 (defn update-graph!
   [name]
+  (dataworks.app-graph/stream!         ;; fully qualified to
+   :kafka/dataworks.internal.functions ;; avoid circular
+   {:crux.db/id name                   ;; dependency error
+    :stored-function/type :stream})
   (apply-graph! (query-graph name @edges)))
 
 (defn evals? [function]
@@ -159,17 +160,23 @@
       :stream/error-handler error-handler))))
 
 (defn get-node
-  [stream buffer transducer error-handler]
-  (case (namespace name)
-    "kafka" (handle-topic stream
-                          buffer
-                          transducer
-                          error-handler)
-    "stream" (handle-stream stream
-                            buffer
-                            transducer
-                            error-handler)
-    (failure :namespace-must-be-kafka-or-stream)))
+  ([stream buffer transducer error-handler]
+   (get-node stream buffer transducer error-handler nil))
+  ([stream buffer transducer error-handler instance]
+   (case (namespace name)
+     "kafka" (apply handle-topic
+                    (if-conj
+                        (list
+                         stream
+                         buffer
+                         transducer
+                         error-handler)
+                      instance))
+     "stream" (handle-stream stream
+                             buffer
+                             transducer
+                             error-handler)
+     (failure :namespace-must-be-kafka-or-stream))))
 
 (defn add-stream!
   "Add stream to streams."

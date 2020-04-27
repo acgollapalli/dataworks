@@ -41,7 +41,7 @@ So what the hell is a Collector? A Collector is an API endpoint. It's a web addr
 
 Here's the thing, Right you're only allowed to evaluate 1 s-expression. I'd be tempted to prtend it's some sort of security thing, but really it's just a limitation we haven't gotten around yet. However, because clojure is clojure, you can create functions inside of functions, and even name them if you do it inside a let macro (if you didn't know let is a macro in clojure). Every stored function lives inside a namespace, and there's a namespace for each type of stored function. This doesn't mean you can call one stored function from another, except for transactors via the "transact!" function and transformers via the "transformers" macro. The stored functions are evaluated as anonymous functions, and other means have to be used to refer to them.
 
-Collectors have access to your database (we use a database called Crux, and I'll explain why in a bit) a time library called tick to tell time, a safe read-string so you can accept serialized edn params, the dataworks.common namespace so you can use some of the handy convenience and validation functions I've written, and yada, so you can make yada resources easily.
+Collectors have access to your database (we use a database called Crux, and I'll explain why in a bit) a time library called tick to tell time, a safe read-string so you can accept serialized edn params, the dataworks.utils.common namespace so you can use some of the handy convenience and validation functions I've written, and yada, so you can make yada resources easily.
 
 Here's what the namespace looks like:
 
@@ -51,7 +51,7 @@ Here's what the namespace looks like:
    [clojure.pprint :refer [pprint]]
    [dataworks.authentication :refer [authenticate
                                      authorize]]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [dataworks.db.user-db :refer [user-db
                                  submit-tx
                                  query
@@ -127,7 +127,7 @@ Resource:
             tx-event))}}}
 #+END_SRC
 
-Well that's all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you'd write everyday at the repl. It's included in dataworks.common so you'll be able to use it with every stored function.
+Well that's all nice and tidy, right? No? Well luckily I wrote a handy convencience function that makes it more like the kind of code you'd write everyday at the repl. It's included in dataworks.utils.common so you'll be able to use it with every stored function.
 
 #+BEGIN_SRC clojure
 (defmacro ->let [& forms]
@@ -342,7 +342,7 @@ This lives in the internals namespace, for which the following are provided:
                                  submit-tx
                                  query
                                  entity]]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [cheshire.core :as cheshire]
    [crux.api :as crux]
    [dataworks.transactor :refer [transact!]]

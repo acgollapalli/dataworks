@@ -476,3 +476,46 @@
                               :stored-function/dependencies
                               dependencies)
                        params))))
+
+(defn paths
+  "returns all paths from start to end along the graph
+   specified via edges "
+  ([edges start end]
+   (recursive-filter #(keyword? (first %))
+                     (paths edges start end (list start))))
+  ([edges start end l]
+   (let [deps (filter #(= (first l)
+                              (last %))
+                      edges)
+         set-deps (into #{}
+                        (map first deps))]
+     (if (some some? (map set-deps l))
+       (throw (Exception. (str "circular dependency: "
+                               (conj l
+                                     (first
+                                      (filter some?
+                                             (map set-deps l))))))))
+     (if-not (= (first l) end)
+       (map (partial paths edges start end)
+        (map #(conj l %)
+             (map first
+                  deps)))
+       l))))
+
+(defn order-nodes
+  "returns the list of nodes in order of longest
+   distance to the root node, along the graph
+   specified via edges.
+   This is useful for figuring out the order in which
+   to recompile functions depending on the root function
+   in which the dependency relations are specified in edges."
+  [root edges]
+   (map second
+       (sort-by first
+           (map (juxt
+                 (comp (partial apply max)
+                       (partial map count)
+                       (partial paths edges root))
+                 identity)
+                (map first
+                     edges)))))

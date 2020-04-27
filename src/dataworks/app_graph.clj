@@ -1,24 +1,38 @@
 (ns dataworks.app-graph
   (:require
-   [clojure.core.async :refer [>! <! go-loop chan close!
-                               sliding-buffer dropping-buffer
-                               take! go mult put! tap]]
+   [clojure.core.async :refer [>! close! go]]
+   [dataworks.db.app-db :refer [entity
+                                get-dependencies]]
    [dataworks.utils.kafka :refer [consumer-instance]]
+   [dataworks.utils.common :refer [order-nodes]]
    [dataworks.stream :as stream]
    [mount.core :refer [defstate]]))
 
+(def nodes
+  (atom {}))
+
+(defn stream!
+  "This function is the dataworks-app stream function.
+   It only accesses the internal nodes, rather than the ones
+   that exist in dataworks.streams"
+  [stream data]
+  (if-let [channel (get-in @nodes [stream :input])]
+    (go (>! channel data))))
+
 (defn fn-stream
-  [fn-type]
+  [fn-type start-fn]
   {:stream/name (keyword "stream" fn-type)
    :stream/buffer 10
    :stream/upstream
-   #{:kafka/dataworks.internal.functions}
-   :stream/transducer (filter
-                       #(= (:stored-function/type
-                            %)
-                           (keyword fn-type)))})
-
-
+   #{:stream/internal.functions}
+   :stream/transducer (comp
+                       (filter
+                        #(= (:stored-function/type
+                             %)
+                            (keyword fn-type)))
+                       (map  ;; TODO add error handling.
+                        (fn [{:crux.db/keys [id]}]
+                          (start-fn (entity id)))))})
 
 (def streams
   (concat
@@ -28,13 +42,27 @@
      :stream/buffer 10
      :stream/instance (consumer-instance
                        "dataworks.internal.functions"
-                       dataworks.heartbeat/uuid)}
-    ;; coordinates internals
-    {:stream/name :stream/responsibilities}
-    {:stream/name :stream/internal.events
-     :stream/upstream #{:stream/responsibilities
-                        :kafka/dataworks.internal.internals}})
-   ;; heartbeat goea here
+                       nil
+                       :edn
+                       {"group.id"
+                        (str (java.util.UUID/randomUUID))})
+     :stream/transducer (map :value)}
+
+    {:stream/name :stream/internal.functions
+     :stream/upstream #{:kafka/dataworks.internal.functions}
+     :stream/buffer 1000
+     :stream/transducer (map
+                         (fn [{:crux.db/keys [id]}]
+                           (doseq [dep (order-nodes
+                                        name
+                                        (get-dependencies
+                                         id))]
+                             (stream!
+                              ;; will this cause deps to go
+                              ;; out of order if there are more
+                              ;; that 1000 deps to handle?
+                              :stream/internal.functions
+                              dep))))})
    ;; Below we create streams for each of our stored function
    ;; types, so they know when a function has been updated on
    ;; another node.
@@ -43,50 +71,33 @@
          "collector"
          "stream"
          "transactor"
-         "transformer"))))
+         "transformer")
+        (list
+         dataworks.collector/add-collector!
+         dataworks.stream/start-stream!
+         dataworks.transactor/add-transactor!
+         dataworks.transformer/add-transformer!))))
 
-(defn get-node
-  [stream buffer transducer error-handler instance]
-  (case (namespace name)
-    "kafka" (stream/handle-topic stream
-                          buffer
-                          transducer
-                          error-handler
-                          instance)
-    "stream" (stream/handle-stream stream
-                            buffer
-                            transducer
-                            error-handler)))
-
-(defstate nodes
+(defstate node-state
   :start
-  (into {}
-        (map
-         (juxt
-          :stream/name
-          (fn [{:stream/keys [name buffer transducer
-                              error-handler] :as stream}]
-            (get-node stream buffer transducer
-                             error-handler))))
-        streams)
+  (reset! nodes
+          (into {}
+                (map
+                 (juxt
+                  :stream/name
+                  (fn [{:stream/keys [name buffer transducer
+                                      error-handler] :as stream}]
+                    (stream/get-node stream buffer transducer
+                                     error-handler))))
+                streams))
   :stop
   (map close!
        (apply concat
               (map stream/channel-filter
-                   (map vals (vals nodes))))))
+                   (map vals (vals @nodes))))))
 
 (defstate edges
   :start
   (into []
         (map stream/get-edges)
         streams))
-
-
-
-(defn stream!
-  "This function is the dataworks-app stream function.
-   It only accesses the internal nodes, rather than the ones
-   that exist in dataworks.streams"
-  [stream data]
-  (if-let [channel (get-in nodes [stream :input])]
-    (go (>! channel data))))

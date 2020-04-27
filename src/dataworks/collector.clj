@@ -2,6 +2,7 @@
   (:require
    [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
+   [dataworks.app-graph :refer [stream!]]
    [dataworks.authentication :as auth]
    [dataworks.db.app-db :refer [app-db
                                 get-stored-function
@@ -120,6 +121,10 @@
      :details collector})))
 
 (defn apply-collector! [params]
+  (stream! :kafka/dataworks.internal.functions
+           (select-keys (first params)
+                        [:crux.db/id
+                         :stored-function/type]))
   (apply add-collector! params))
 
 (defn start-collectors! []
