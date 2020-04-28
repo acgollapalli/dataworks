@@ -14,8 +14,6 @@
    [["app/"
      {"collector" (creation-resource :collector)
       "collector/" (update-resource :collector)
-      "internal" (creation-resource :internal)
-      "internal/" (update-resource :internal)
       "transactor" (creation-resource :transactor)
       "transactor/" (update-resource :transactor)
       "transformer" (creation-resource :transformer)

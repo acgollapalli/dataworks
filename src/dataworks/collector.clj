@@ -163,6 +163,7 @@
        (function-already-exists? :collector)
        other-collector-with-path?
        db-fy
+       (dependencies? :collector)
        evalidate
        added-to-db?
        apply-collector!))
@@ -176,6 +177,7 @@
        (valid-update? :collector :path :resource)
        valid-path?
        db-fy
+       (dependencies? :collector)
        evalidate
        added-to-db?
        apply-collector!))

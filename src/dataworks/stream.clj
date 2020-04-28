@@ -137,6 +137,7 @@
        (parseable? :transducer :error-handler)
        (function-already-exists? :stream)
        db-fy
+       (dependencies? :stream)
        validate-buffer
        transducer-has-buffer?
        error-handler-has-transducer?
@@ -147,10 +148,11 @@
 (defn update-stream!
   [stream]
   (->? stream
-       (add-current-stored-function :collector)
-       (has-parsed-params? :transducer :error-handler)
+       (add-current-stored-function :stream)
+       (has-parsed-params? :stream :transducer :error-handler)
        (function-already-exists? :stream)
        db-fy
+       (dependencies? :stream)
        validate-buffer
        transducer-has-buffer?
        error-handler-has-transducer?
