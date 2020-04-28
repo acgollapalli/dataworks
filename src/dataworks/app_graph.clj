@@ -32,7 +32,7 @@
                        (str (java.util.UUID/randomUUID))})
     :stream/transducer (map :value)}
 
-   {:stream/name :stream/internal.functions
+   {:stream/name :stream/dataworks.internal.functions
     :stream/upstream #{:kafka/dataworks.internal.functions}
     :stream/buffer 1000
     :stream/transducer (map
