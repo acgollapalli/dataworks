@@ -28,7 +28,7 @@
    (into (list)
         (concat [(symbol '->let)]
                 (map #(apply
-                       (partial replace-symbols %)
+                       (partial replace-these %)
                        (get-xformers xformers))
                      forms)))))
 

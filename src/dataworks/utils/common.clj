@@ -2,7 +2,6 @@
   (:require
    [clojure.string :as string]
    [clojure.pprint :refer [pprint]]
-   [clojure.zip :as zip]
    [clojure.edn :as edn]
    [time-literals.read-write :as time-literals]))
 
@@ -559,7 +558,7 @@
       (= form sym) replacement
       :else form)))
 
-(defn replace-symbols [form & tuples]
+(defn replace-these [form & tuples]
   (if-not (empty? tuples)
     (recur
      (apply (partial recursive-replace form)
