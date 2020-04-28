@@ -185,8 +185,8 @@
     (tap (get-in
           app/node-state
           [:stream/dataworks.internal.functions
-           :output]
-          c)))
+           :output])
+          c))
   :stop
   (close! stream-chan))
 

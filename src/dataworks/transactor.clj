@@ -124,9 +124,8 @@
     (tap (get-in
           node-state
           [:stream/dataworks.internal.functions
-           :output]
+           :output])
           c))
-    )
   :stop
   (close! transactor-chan))
 

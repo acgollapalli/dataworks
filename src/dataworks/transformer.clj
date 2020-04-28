@@ -104,8 +104,8 @@
     (tap (get-in
           node-state
           [:stream/dataworks.internal.functions
-           :output]
-          c)))
+           :output])
+          c))
   :stop
   (close! transformer-chan))
 
