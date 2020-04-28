@@ -16,7 +16,7 @@
 
 (defmacro transformers
   [xformers & forms]
-  (concat '(->let)
+  (concat '('->let)
           (map def-ify xformers)
           forms))
 (require '[dataworks.streams :refer [stream!]])

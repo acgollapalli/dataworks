@@ -1,7 +1,8 @@
 (ns dataworks.utils.stream
   (:require
    [clojure.core.async :refer [go put! take! <! mult
-                               tap go-loop chan]]
+                               tap go-loop chan alt!
+                               timeout]]
    [dataworks.utils.common :refer :all]
    [dataworks.utils.kafka :require [consumer-instance
                                     consume-records
@@ -128,3 +129,13 @@
    #(= clojure.core.async.impl.channels.ManyToManyChannel
        (class %))
    objects))
+
+
+(defn take-while
+  [channel]
+  (go-loop []
+    (alt! (timeout 1000) ([] (recur))
+          channel ([x]
+                   (when (some? x)
+                     ;; TODO add some logging here
+                     (recur))))))

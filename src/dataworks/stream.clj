@@ -1,8 +1,10 @@
 (ns dataworks.stream
   (:require
    [clojure.core.async :refer [close!
-                               sliding-buffer dropping-buffer
-                               ]]
+                               tap
+                               chan
+                               sliding-buffer
+                               dropping-buffer]]
    [dataworks.utils.common :refer :all]
    [dataworks.db.app-db :refer :all]
    [dataworks.app-graph :as app]
@@ -168,24 +170,32 @@
        error-handler-has-transducer?
        add-stream!))
 
+(defstate stream-chan
+  :start
+  (let [c (chan
+           10
+           (comp
+            (filter
+             #(= (:stored-function/type %)
+                 (keyword :stream)))
+            (map  ;; TODO add error handling.
+             (fn [{:crux.db/keys [id]}]
+               (start-stream! (entity id))))))]
+    (take-while c)
+    (tap (get-in
+          app/node-state
+          [:stream/dataworks.internal.functions
+           :output]
+          c)))
+  :stop
+  (close! stream-chan))
+
 (defstate stream-state
   ;; Start/stop the go-loop that restarts stopped streams.
   ;; This should probably return a value, but we don't use
   ;; it anywhere except on startup.
   :start
   (do
-   (apply-graph!
-   app/node-state
-   (handle-stream
-    nil 10
-    (comp
-     (filter
-      #(= (:stored-function/type %)
-          (keyword :stream)))
-     (map  ;; TODO add error handling.
-      (fn [{:crux.db/keys [id]}]
-        (start-stream! (entity id)))))
-    nil))
     (map start-stream! (get-stored-functions :stream))
     (apply-graph! @edges @nodes))
   :stop

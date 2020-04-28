@@ -1,5 +1,8 @@
 (ns dataworks.collector
   (:require
+   [clojure.core.async :refer [close!
+                               chan
+                               tap]]
    [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
    [dataworks.app-graph :refer [node-state
@@ -130,23 +133,8 @@
                          :stored-function/type]))
   (apply add-collector! params))
 
-(defn create-stream []
-  (stream/apply-graph!
-   node-state
-   (stream/handle-stream
-    nil 10
-    (comp
-     (filter
-      #(= (:stored-function/type %)
-          (keyword :collector)))
-     (map  ;; TODO add error handling.
-      (fn [{:crux.db/keys [id]}]
-        (add-collector! (entity id)))))
-    nil)))
-
 (defn start-collectors! []
   (println "Starting Collectors")
-  (create-stream)
   (let [colls (get-stored-functions :collector)
         status (map add-collector! colls)]
     (if (every? #(= (:status %) :success) status)
@@ -181,6 +169,26 @@
        evalidate
        added-to-db?
        apply-collector!))
+
+(defstate collector-chan
+  :start
+  (let [c (chan
+           10
+           (comp
+            (filter
+             #(= (:stored-function/type %)
+                 (keyword :collector)))
+            (map  ;; TODO add error handling.
+             (fn [{:crux.db/keys [id]}]
+               (add-collector! (entity id))))))]
+    (stream/take-while c)
+    (tap (get-in
+          node-state
+          [:stream/dataworks.internal.functions
+           :output]
+          c)))
+  :stop
+  (close! collector-chan))
 
 (defstate collector-state
   :start

@@ -1,6 +1,9 @@
 (ns dataworks.transactor
   (:require
-   [clojure.core.async :refer [go] :as async]
+   [clojure.core.async :refer [go
+                               close!
+                               chan
+                               tap] :as async]
    [clojure.pprint :refer [pprint]]
    [dataworks.utils.stream :as stream]
    [dataworks.app-graph :refer [stream!
@@ -97,22 +100,7 @@
        added-to-db?
        apply-transactor!))
 
-(defn create-stream []
-  (stream/apply-graph!
-   node-state
-   (stream/handle-stream
-    nil 10
-    (comp
-     (filter
-      #(= (:stored-function/type %)
-          (keyword :transactor)))
-     (map  ;; TODO add error handling.
-      (fn [{:crux.db/keys [id]}]
-        (add-transactor! (entity id)))))
-    nil)))
-
 (defn start-transactors! []
-  (create-stream)
   (do (println "Starting Transactors!")
       (let [trs (get-stored-functions :transactor)
             status (map add-transactor! trs)]
@@ -120,6 +108,27 @@
           (println "Transactors Started!")
           (println "Transactors Failed to Start:"
                    (map :name status))))))
+
+(defstate transactor-chan
+  :start
+  (let [c (chan
+           10
+           (comp
+            (filter
+             #(= (:stored-function/type %)
+                 (keyword :transactor)))
+            (map  ;; TODO add error handling.
+             (fn [{:crux.db/keys [id]}]
+               (add-transactor! (entity id))))))]
+    (stream/take-while c)
+    (tap (get-in
+          node-state
+          [:stream/dataworks.internal.functions
+           :output]
+          c))
+    )
+  :stop
+  (close! transactor-chan))
 
 (defstate transactor-state
   :start (start-transactors!)

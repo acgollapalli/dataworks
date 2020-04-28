@@ -1,5 +1,8 @@
 (ns dataworks.transformer
   (:require
+   [clojure.core.async :refer [close!
+                               chan
+                               tap]]
    [dataworks.utils.common :refer :all]
    [dataworks.db.app-db :refer :all]
    [dataworks.utils.stream :as stream]
@@ -78,22 +81,7 @@
        added-to-db?
        apply-transformer!))
 
-(defn create-stream []
-  (stream/apply-graph!
-   node-state
-   (stream/handle-stream
-    nil 10
-    (comp
-     (filter
-      #(= (:stored-function/type %)
-          (keyword :transformer)))
-     (map  ;; TODO add error handling.
-      (fn [{:crux.db/keys [id]}]
-        (add-transformer! (entity id)))))
-    nil)))
-
 (defn start-transformers! []
-  (create-stream)
   (do (println "Starting Transformers!")
       (let [trs (get-stored-functions :transformer)
             status (map add-transformer! trs)]
@@ -101,6 +89,25 @@
           (println "Transformers Started!")
           (println "Transformers Failed to Start:"
                    (map :name status))))))
+(defstate transformer-chan
+  :start
+  (let [c (chan
+           10
+           (comp
+            (filter
+             #(= (:stored-function/type %)
+                 (keyword :transformer)))
+            (map  ;; TODO add error handling.
+             (fn [{:crux.db/keys [id]}]
+               (add-transformer! (entity id))))))]
+    (stream/take-while c)
+    (tap (get-in
+          node-state
+          [:stream/dataworks.internal.functions
+           :output]
+          c)))
+  :stop
+  (close! transformer-chan))
 
 (defstate transformer-state
   :start (start-transformers!)
