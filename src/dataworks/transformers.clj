@@ -14,18 +14,32 @@
   `(def ~xformer
      ~(get @transformer-map (keyword xformer))))
 
+(defn get-xformers [xformers]
+  (apply concat
+         (map
+          (juxt identity
+                #(get @transformer-map
+                     (keyword %)))
+          xformers)))
+
 (defmacro transformers
   [xformers & forms]
-  (concat '('->let)
-          (map def-ify xformers)
-          forms))
+  (reverse
+   (into (list)
+        (concat [(symbol '->let)]
+                (map #(apply
+                       (partial replace-symbols %)
+                       (get-xformers xformers))
+                     forms)))))
+
 (require '[dataworks.streams :refer [stream!]])
 (require '[dataworks.transactors :refer [transact!]])
 
 ;; This is where the actual transformers live.
 ;; They only live here at runtime.
-;; DO NOT PUT CODE IN THIS NAMESPACE.
-;; (...beyond the above)
+;; DO NOT PUT CODE IN THIS NAMESPACE unless that code
+;; is actually something that transformers should be able
+;; to run (like the transformers macro).
 
 ;; TODO add computational libraries like neanderthal and
 ;; other math libs.

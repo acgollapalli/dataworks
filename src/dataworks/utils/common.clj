@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as string]
    [clojure.pprint :refer [pprint]]
+   [clojure.zip :as zip]
    [clojure.edn :as edn]
    [time-literals.read-write :as time-literals]))
 
@@ -542,3 +543,26 @@
                  identity)
                 (map first
                      edges)))))
+
+(defn recursive-replace [form sym replacement]
+  (let [once-more (partial
+                   map
+                   #(recursive-replace
+                     %
+                     sym
+                     replacement))]
+    (cond
+      (map? form) (into {} (once-more form))
+      (vector? form) (into [] (once-more form))
+      (set? form) (into #{} (once-more form))
+      (seq? form) (once-more form)
+      (= form sym) replacement
+      :else form)))
+
+(defn replace-symbols [form & tuples]
+  (if-not (empty? tuples)
+    (recur
+     (apply (partial recursive-replace form)
+            (take 2 tuples))
+     (drop 2 tuples))
+    form))
