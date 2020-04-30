@@ -482,25 +482,36 @@
 
 (defn dependencies?
   [params function-type]
-  (if-vector-first params
-                   dependencies?
-                   (let [dependencies
-                         (into #{}
-                               (map
-                                #(get-entity-param
-                                  (keyword %)
-                                  :transactor))
-                               (get-names
-                                'transformers
-                                ((get-entity-param
-                                  :function
-                                  function-type)
-                                 params)))]
-                     (if-not (empty? dependencies)
-                       (assoc params
-                              :stored-function/dependencies
-                              dependencies)
-                       params))))
+  (if-vector-first
+    params
+    dependencies?
+    (let [dependencies
+          (into #{}
+                cat
+                ((juxt
+                  (comp
+                   (partial map
+                            #(get-entity-param
+                              (keyword %)
+                              :transformer))
+                   (partial get-names 'transformers))
+                  (partial recursive-filter
+                           #(= (first %) 'transact!)
+                           #(conj '()
+                                  (get-entity-param
+                                   (second %)
+                                   :transactor)))
+                  (partial recursive-filter
+                           #(= (first %) 'stream!)
+                           #(conj '()
+                                  (second %))))
+                 ((get-entity-param :function function-type)
+                  params)))]
+      (if-not (empty? dependencies)
+        (assoc params
+               :stored-function/dependencies
+               dependencies)
+        params))))
 
 (defn paths
   "returns all paths from start to end along the graph
