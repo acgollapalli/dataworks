@@ -17,9 +17,9 @@
 
 (defn update-graph!
   [name]
-  (app/stream!         ;; fully qualified to
-   :kafka/dataworks.internal.functions ;; avoid circular
-   {:crux.db/id name                   ;; dependency error
+  (app/stream!
+   :kafka/dataworks.internal.functions
+   {:crux.db/id name
     :stored-function/type :stream})
   (apply-graph! (query-graph name @edges)
                 @nodes))
@@ -168,7 +168,9 @@
        validate-buffer
        transducer-has-buffer?
        error-handler-has-transducer?
-       add-stream!))
+       add-stream!
+       ;;update-graph!
+       ))
 
 (defstate stream-chan
   :start

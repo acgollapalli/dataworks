@@ -190,9 +190,9 @@
   :stop
   (close! collector-chan))
 
-(defstate collector-state
-  :start
-  (start-collectors!)
-  :stop
-  (dosync (reset! atomic-routes {})
-          (reset! resource-map {})))
+;;(defstate collector-state
+;;  :start
+;;  (start-collectors!)
+;;  :stop
+;;  (dosync (reset! atomic-routes {})
+;;          (reset! resource-map {})))

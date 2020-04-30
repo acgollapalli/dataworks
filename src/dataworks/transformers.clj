@@ -3,6 +3,7 @@
    [dataworks.utils.common :refer :all]
    [dataworks.utils.time :refer :all]
    [dataworks.db.user-db :refer :all]
+   [crux.api :as crux]
    [tick.alpha.api :as tick]))
 
 (def transformer-ns *ns*)

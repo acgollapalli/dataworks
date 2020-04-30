@@ -121,6 +121,7 @@
          :details (.getMessage e)}))))
 
 (defn get-dependencies
+  "Get a dependency graph for a function."
   [function]
   (query {:find '[d1 d2]
           :where '[(depends d1 d0)
@@ -131,3 +132,9 @@
                    [(depends d1 d2)
                     [d1 :stored-function/dependencies x]
                     (depends x d2)]]}))
+
+(defn get-all-dependencies
+  "Get the dependency graph for all functions."
+  []
+  (query {:find '[d1 d2]
+          :where '[[d1 :stored-function/dependencies d2]]}))

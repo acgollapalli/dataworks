@@ -31,9 +31,10 @@
 
 (defn add-transformer!
   ([params]
-   (if-let [f (evalidate params)]
-     ;; TODO check for failed status here
-     (apply add-transformer! f)))
+   (let [f (evalidate params)]
+     (if (not= (:status f) :failure)
+       (apply add-transformer! f)
+       f))) ;;... to pay respects
   ([{:transformer/keys [name] :as params} f]
    (swap! transformer-map #(assoc % (keyword name) f))
    {:status :success
@@ -84,6 +85,7 @@
 (defn start-transformers! []
   (do (println "Starting Transformers!")
       (let [trs (get-stored-functions :transformer)
+            do-this (clojure.pprint/pprint trs)
             status (map add-transformer! trs)]
         (if (every? #(= (:status %) :success) status)
           (println "Transformers Started!")
@@ -99,6 +101,7 @@
                  (keyword :transformer)))
             (map  ;; TODO add error handling.
              (fn [{:crux.db/keys [id]}]
+               (clojure.pprint/pprint (entity id))
                (add-transformer! (entity id))))))]
     (stream/take-while c)
     (tap (get-in
@@ -109,6 +112,6 @@
   :stop
   (close! transformer-chan))
 
-(defstate transformer-state
-  :start (start-transformers!)
-  :stop (reset! transformer-map {}))
+;;(defstate transformer-state
+;;  :start (start-transformers!)
+;;  :stop (reset! transformer-map {}))

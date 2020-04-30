@@ -129,6 +129,6 @@
   :stop
   (close! transactor-chan))
 
-(defstate transactor-state
-  :start (start-transactors!)
-  :stop (reset! transactor-map {}))
+;;(defstate transactor-state
+;;  :start (start-transactors!)
+;;  :stop (reset! transactor-map {}))

@@ -129,9 +129,7 @@
   (keyword
    (stringify-keyword function-type)
    (if (keyword? param)
-     (string/replace
-      (stringify-keyword param)
-      #"/" ".")
+     (stringify-keyword param)
      param)))
 
 (defn generate-message
@@ -486,14 +484,18 @@
   [params function-type]
   (if-vector-first params
                    dependencies?
-                   (let [dependencies (into #{}
-                                            (map keyword)
-                                            (get-names
-                                             'transformers
-                                             ((get-entity-param
-                                               :function
-                                               function-type)
-                                              params)))]
+                   (let [dependencies
+                         (into #{}
+                               (map
+                                #(get-entity-param
+                                  (keyword %)
+                                  :transactor))
+                               (get-names
+                                'transformers
+                                ((get-entity-param
+                                  :function
+                                  function-type)
+                                 params)))]
                      (if-not (empty? dependencies)
                        (assoc params
                               :stored-function/dependencies

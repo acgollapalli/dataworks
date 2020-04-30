@@ -19,4 +19,6 @@
   :main ^:skip-aot dataworks.core
   :target-path "target/%s"
   :plugins  [[lein-cljfmt "0.6.7"]]
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}
+             :dev {:dependencies [[com.clojure-goes-fast/clj-memory-meter "0.1.2"]]
+                   :jvm-opts ["-Djdk.attach.allowAttachSelf"] }})
