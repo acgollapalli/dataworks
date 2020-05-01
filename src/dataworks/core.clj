@@ -5,6 +5,11 @@
    [dataworks.resource :refer [creation-resource
                                update-resource
                                user-resource]]
+   [dataworks.db.app-db :refer [query entity]]
+   [dataworks.collector :refer [add-collector!]]
+   [dataworks.transactor :refer [add-transactor!]]
+   [dataworks.transformer :refer [add-transformer!]]
+   [dataworks.stream :refer [start-stream! wire-streams!]]
    [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [listener as-resource]])
   (:gen-class))
@@ -36,25 +41,54 @@
   :stop
   ((:close svr)))
 
-(def states
-  ["#'dataworks.db.app-db/app-db"
-   "#'dataworks.db.user-db/user-db"
-   "#'dataworks.collector/collector-state"
-   "#'dataworks.transactor/transactor-state"
-   "#'dataworks.internal/internal-state"
-   "#'dataworks.transformer/transformer-state"
-   "#'dataworks.stream/stream-state"
-   "#'dataworks.core/svr"])
+(defn start-stored-function!
+  [f]
+  (let [f (entity f)]
+    (case (:stored-function/type f)
+      :collector (add-collector! f)
+      :transformer (add-transformer! f)
+      :transactor (add-transactor! f)
+      :stream (start-stream! f))))
 
-(defn go []
-  (apply mount/start states))
+(def start-function-xform
+  (comp
+   (map first)
+   (map (juxt (comp :status start-stored-function!)
+              identity))
+   (filter #(= :success (first %))) ;; TODO add error-logging
+   (map second)))
 
-(defn stop []
-  (apply mount/stop states))
+(defn start-functions!
+  ([]
+   (start-functions! #{}))
+  ([evald]
+   (println evald)
+   (let [q (if (empty? evald)
+             '{:find [e]
+               :where [[e :stored-function/type]
+                       (not [e :stored-function/dependencies])]}
+             {:find '[e]
+              :where '[(depends e)
+                       (not (doesn't-depend e))]
+              :rules [['(depends e)
+                       '[e :stored-function/dependencies d1]
+                       [(list '== 'd1 evald)]]
+                      ['(doesn't-depend e)
+                       '[e :stored-function/dependencies d2]
+                       [(list '!= 'd2 evald)]]]})
+         do-this (clojure.pprint/pprint q)
+         new-evald
+         (into
+          #{}
+          start-function-xform
+          (query q))]
+     (if-not (empty? new-evald)
+       (recur new-evald)
+       (wire-streams!)))))
 
-(defn reset []
-  (println (stop))
-  (println (go)))
+(defstate stored-fns
+  :start
+  (start-functions!))
 
 (defn -main
   "I don't do a whole lot ... yet."

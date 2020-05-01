@@ -15,14 +15,17 @@
    [mount.core :refer [defstate]]
    [tick.alpha.api :as tick]))
 
+(defn add-to-graph! [name]
+    (apply-graph! (query-graph name @edges)
+                @nodes))
+
 (defn update-graph!
   [name]
   (app/stream!
    :kafka/dataworks.internal.functions
    {:crux.db/id name
     :stored-function/type :stream})
-  (apply-graph! (query-graph name @edges)
-                @nodes))
+  (add-to-graph! name))
 
 (defn evals? [function]
   (binding [*ns* stream-ns]
@@ -168,9 +171,7 @@
        validate-buffer
        transducer-has-buffer?
        error-handler-has-transducer?
-       add-stream!
-       ;;update-graph!
-       ))
+       add-stream!))
 
 (defstate stream-chan
   :start
@@ -182,7 +183,7 @@
                  (keyword :stream)))
             (map  ;; TODO add error handling.
              (fn [{:crux.db/keys [id]}]
-               (start-stream! (entity id))))))]
+               (-> id entity start-stream! add-to-graph!)))))]
     (take-while c)
     (tap (get-in
           app/node-state
@@ -192,19 +193,22 @@
   :stop
   (close! stream-chan))
 
-(defstate stream-state
-  ;; Start/stop the go-loop that restarts stopped streams.
-  ;; This should probably return a value, but we don't use
-  ;; it anywhere except on startup.
-  :start
-  (do
-    (map start-stream! (get-stored-functions :stream))
-    (apply-graph! @edges @nodes))
-  :stop
-  (do
-    (map close!
-       (apply concat
-              (map channel-filter
-                   (map vals (vals @nodes)))))
-    (reset! nodes {})
-    (reset! edges [])))
+(defn wire-streams! []
+  (apply-graph! @edges @nodes))
+
+;;(defstate stream-state
+;;  ;; Start/stop the go-loop that restarts stopped streams.
+;;  ;; This should probably return a value, but we don't use
+;;  ;; it anywhere except on startup.
+;;  :start
+;;  (do
+;;    (map start-stream! (get-stored-functions :stream))
+;;    (apply-graph! @edges @nodes))
+;;  :stop
+;;  (do
+;;    (map close!
+;;       (apply concat
+;;              (map channel-filter
+;;                   (map vals (vals @nodes)))))
+;;    (reset! nodes {})
+;;    (reset! edges [])))
