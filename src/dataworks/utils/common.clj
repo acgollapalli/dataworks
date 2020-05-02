@@ -579,3 +579,7 @@
             (take 2 tuples))
      (drop 2 tuples))
     form))
+
+(defn print-cont [print-me]
+  (clojure.pprint/pprint print-me)
+  print-me)

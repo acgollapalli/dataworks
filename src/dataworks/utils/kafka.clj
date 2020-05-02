@@ -57,8 +57,8 @@
 (defn consume-records
   [instance]
   (let [records (.poll instance #time/duration "PT0.1S")]
-    (map consume-record records))
-  (.commitAsync instance))
+    (.commitAsync instance)
+    (map consume-record records)))
 
 (defn producer-instance
   "Create the kafka producer to send edn"
