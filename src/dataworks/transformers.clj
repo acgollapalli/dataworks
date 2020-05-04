@@ -11,16 +11,17 @@
 (def transformer-map
   (atom {}))
 
-(defn def-ify [xformer]
-  `(def ~xformer
-     ~(get @transformer-map (keyword xformer))))
+(defn transform
+  [xform & args]
+  (apply (get @transformer-map
+              xform)
+         args))
 
 (defn get-xformers [xformers]
   (apply concat
          (map
           (juxt identity
-                #(get @transformer-map
-                     (keyword %)))
+                #(list partial transform (keyword %)))
           xformers)))
 
 (defmacro transformers
