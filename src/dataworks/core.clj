@@ -5,7 +5,7 @@
    [dataworks.resource :refer [creation-resource
                                update-resource
                                user-resource]]
-   [dataworks.db.app-db :refer [query entity]]
+   [dataworks.db.app-db :refer [query entity get-stored-functions]]
    [dataworks.collector :refer [add-collector!]]
    [dataworks.transactor :refer [add-transactor!]]
    [dataworks.transformer :refer [add-transformer!]]
@@ -59,32 +59,12 @@
    (map second)))
 
 (defn start-functions!
-  ([]
-   (start-functions! #{}))
-  ([evald]
-   (println evald)
-   (let [q (if (empty? evald)
-             '{:find [e]
-               :where [[e :stored-function/type]
-                       (not [e :stored-function/dependencies])]}
-             {:find '[e]
-              :where '[(depends e)
-                       (not (doesn't-depend e))]
-              :rules [['(depends e)
-                       '[e :stored-function/dependencies d1]
-                       [(list '== 'd1 evald)]]
-                      ['(doesn't-depend e)
-                       '[e :stored-function/dependencies d2]
-                       [(list '!= 'd2 evald)]]]})
-         do-this (clojure.pprint/pprint q)
-         new-evald
-         (into
-          #{}
-          start-function-xform
-          (query q))]
-     (if-not (empty? new-evald)
-       (recur new-evald)
-       (wire-streams!)))))
+  []
+  (let [f (into #{}
+                start-function-xform
+                (get-stored-functions))]
+    (wire-streams!)
+    f))
 
 (defstate stored-fns
   :start

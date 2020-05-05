@@ -583,3 +583,13 @@
 (defn print-cont [print-me]
   (clojure.pprint/pprint print-me)
   print-me)
+
+(defn set-ns
+  [m n]
+  (into {}
+         (map
+          (fn [[k v]]
+            [(keyword (stringify-keyword n)
+                      (stringify-keyword k))
+             v]))
+         m))

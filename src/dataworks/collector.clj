@@ -144,7 +144,10 @@
 
 (defn create-collector! [collector]
   (->? collector
-       (blank-field? :name :path :resource)
+       (set-ns :collector)
+       (blank-field? :collector/name
+                     :collector/path
+                     :collector/resource)
        valid-path?
        valid-name?
        (parseable? :resource)
@@ -189,10 +192,3 @@
           c))
   :stop
   (close! collector-chan))
-
-;;(defstate collector-state
-;;  :start
-;;  (start-collectors!)
-;;  :stop
-;;  (dosync (reset! atomic-routes {})
-;;          (reset! resource-map {})))
