@@ -2,7 +2,7 @@
   (:require
    [clojure.core.async :refer [go put! take! <! mult
                                tap go-loop chan alt!
-                               timeout]]
+                               timeout >!]]
    [dataworks.utils.common :refer :all]
    [dataworks.utils.kafka :require [consumer-instance
                                     consume-records
@@ -58,44 +58,39 @@
     buffer transducer error-handler]
    (handle-topic stream buffer transducer error-handler
                 (apply kafka/consumer-instance
-                          (if-conj (list
-                                    (clojure.core/name name)
-                                    "dataworks")
+                       (if-conj [(clojure.core/name name)
+                                 "dataworks"]
                                    format))))
-  ([{:stream/keys [name format]}
-    buffer transducer error-handler instance]
-   (try
+  ([{:stream/keys [name format]} buffer
+    transducer error-handler instance]
     (let [write (chan buffer transducer error-handler)
           read (chan buffer)
           topic (clojure.core/name name)]
-      (go-loop [] ;; consumes kafka-topic and puts it on channel
-        (when (every?
-               true?
-               (map
-                (partial put! write)
-                (kafka/consume-records instance)))
-          (recur)))
-      (go-loop [] ;; produces to kafka-topic from channel
-        (let [result (<! read)]
-          (when result
-              (apply kafka/produce!
-                     (if-conj (list
-                               topic
-                               result)
-                              format))
-              (recur))))
+      ;; consumes kafka-topic and puts it on channel
+      (go-loop [msg (kafka/consume-records instance)]
+        (if-not (empty? msg)
+          (when (>! write (first msg))
+            (recur (next msg)))
+          (recur (kafka/consume-records instance))))
+      ;; produces to kafka-topic from channel
+      (go-loop [result (<! read)]
+        (when result
+          (apply kafka/produce!
+                 (if-conj [topic
+                           result]
+                   format))
+          (recur (<! read))))
+      ;; the channels to put in our node graph
       {:core write
        :input read
-       :output (mult write)})
-    (catch Exception e
-      (failure (:cause (Throwable->map e)))))))
+       :output (mult write)})))
 
 (defn handle-stream
   "When the namespace of the stream name is stream...
    represents a node in a dataflow graph."
   [params buffer transducer error-handler]
   (try
-    (let [write (apply chan buffer transducer error-handler)]
+    (let [write (chan buffer (comp transducer (filter some?)) error-handler)]
       {:input write
        :output (mult write)})
     (catch Exception e

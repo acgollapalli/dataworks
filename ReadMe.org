@@ -2,15 +2,53 @@
 
 ** Introduction
 Dataworks is a distributed stored function engine with REST API and stream processing capabilities built on top of a bitemporal, graph-query enabled document-store.
+** Technical Case
+*** What does it do? And what is it good for?
+1) Dataworks is an easy and powerful way to build and deploy REST API's
+2) Dataworks is an easy and powerful way to build and deploy stream processors
+3) Dataworks stores your code in a database, and synchronizes with your code/database as it changes. The code is evaluated at runtime, and on change. This includes API endpoints and routing. Changes are propagated to all instances automatically.
+*** There are plenty of other easy and powerful ways to do those things. What makes this different?
+1) Normally, when you modify a REST API, unless each endpoint is it's own process, you have to redeploy the entire API or service. With Dataworks you can hot swap endpoints in a running application, without effecting any other endpoints on your service. You can add new functionality, without effecting any of the old functionality. It takes much of the complexity of continuous deployment out of the equation. When you modify, add, or delete code on one instance, the changes propagate to all the nodes. Which means deployment is essentially only ever done on upgrades of dataworks itself, and the rest is just updating data in a business application.
+2) You can use transducers on kafka topics as though they were clojure.core.async channels. If you're a clojurian, then you probably already have a feeling of how powerful that is. If not, then just think about it as being able to do stream processing with a very powerful programming language and next-to-no configuration.
+3) Your db, stream processing, and web api are seamlessly integrated, and are themselves just clojure functions.
+4) Configuration is as simple as pointing your dataworks instance to a kafka broker.
+*** For clojure hackers
+If you're a clojure hacker, then you're familiar with the existing way of creating and running clojure programs:
+1) create a namespace
+2) add dependencies
+3) write your functions one after the other, each depending on previous functions.
+4) recur
+5) When you have the functionality you want, then you create an uberjar, and deploy it in whatever manner you or your company see fit to do so.
+Dataworks... doesn't really follow that model. As we all know, "code is data", so dataworks does what we always do with data, which is to store it in a database, specifically in a graph database. (While we don't really exploit this capability to the fullest, we will be looking to in the future). Each stored-function get's it's own document and is treated as its own entity. It is evaluated at runtime, and reevaluated as code changes. This presents advantages and disadvantages.
+**** Advantages
+1) Instances do not have to be redeployed when code changes. Because instances are kept synchronized with the database as the application runs, number of deployments is minimalized, and operations complexity reduced.
+2) Your code can be queried. (we're working on this, give it time)
+3) Instead of working at the level of the file or namespace, you're really working at the level of the function. So far as the application is concerned, what is changing, all that is really changing, are functions. You're no longer managing services, or jar files. You're managing functions.
+4) You can easily make dataworks do things that you wouldn't expect, because in dataworks you can do anything. It's just a way of storing and deploying functions, with some handy utils built in. You might even say "It's just a library."
+5) Dependencies are handled on the level of the function, not the namespace. (and even that is a work in progress)
+6) You no longer have to worry about circular dependencies, because they're allowed.
+7) You no longer have to wait for `lein uberjar` to create a build.
+8) It's cool.
+**** Disadvantages
+1) We don't yet have records, protocols, or multimethods. If you really, really, need those things, then you might want to wait a couple releases.
+2) Dependencies are added by adding to the classpath. We don't yet have an automated way to handle this. (will be handled before 1.0 release)
+3) Dependencies are handled on the level of the function, not the namespace.
+   As mentioned before, the way dependencies are handled in dataworks is slightly different.
+   We believe this is actually an advantage in the long run, but some may disagree.
+   It's worth noting that so long as functions/classes are on the same classpath of your process, the code is always accessible. There isn't really any isolation of dependencies, but this is true of clojure in general, to the best of my knowledge.
+4) You can't just `lein uberjar` your build. You have to send your code to dataworks via REST API.
+   This is also, debateably, an advantage, and we did it because we believe that it is one.
+
+*** Caveat Cloner
+This release (0.5) is a naive release. If premature optimization is the root of all evil, then we shall be good's greatest friend, as in these paren-wrapped files there is no optimization in danger of being premature. All implementation of functionality is thoroughly naive, and sometimes downright crude. As we have done our best to choose good bits of code and get out of their way, I would not be surprised if you got good performance right out of the gate. But I would be even more unsurprised if you didn't, and it were entirely my fault. So don't use it in critical production applications yet. And if you do choose to use it in a critical production application, do read the source code and judge it for yourself. This code is at version 0.5 for a reason: it is only halfway to where it needs to be.
 ** Business Case
-For many years the way of managing the business logic of enterprise systems was by using stored procedures in a SQL database. For many businesses, the SQL database is the single most important part of their entire operation, the coordinating capstone, without which the enterprise would not be able to function. The management of business logic within the SQL database itself allowed for the management of access to the database, as well as optimization and management by database administrators in order to preserve the integrity and availability of the SQL database, and thus the information heart of the enterprise.
+For many years the way of managing the business logic of enterprise systems was by using stored procedures in a SQL database (at the behest of DBA's primarily). For many businesses, the SQL database is the single most important part of their entire operation, the coordinating capstone, without which the enterprise would not be able to function. The management of business logic within the SQL database itself allowed for the management of access to the database, as well as optimization and management by database administrators in order to preserve the integrity and availability of the SQL database, and thus the information heart of the enterprise.
 
 Due to the increasing requirements of programmers in order to create more powerful applications for the sake of the enterprise, such an architecture became infeasible, as the stored procedure language, SQL presented insuficient capabilities for creating abstractions, resulting in productivity loss and lengthy, expensive development of new features and business functionality. Thus programmers began creating applications which called the SQL database, but were not contained externally. This resulted in multiple codebases, multiple projects, multiple project managers, and many different pipelines to developing business functionality, all of which increases complexity, and thus cost.
 
 With the advent of microservices and cloud architectures, the codebases became even more numerous, if smaller and more easily managed, at the expense of still increased complexity, and difficulty on the part of management and development operations in managing such a large and widely spread surface area. In addition, while the microservice is not in any inherent way, less secure, nevertheless, having such an architecture increases the attack surface as more services to manage mean more places where holes can be left in the network integrity of the business. This is a non-trivial problem. Of course, the same problems as described before also apply here with still greateer effect, with the increasing complexity and demands on development operations increasing cost and adding development overhead. In addition, the complicated toolchains often used with the languages for these microservices, particularly nodeJS and its accompanying ecosystem, tends to result in significant waste of development time on managing tooling instead of writing business logic, which results in high inefficiency and significantly lower return on investment (ROI). For many enterprises, the advantages these microservice architectures provide of high scalability make their disadvantages a frustrating, but unavoidable necessity.
 
-Dataworks solves the issues of the monolithic and microservice architectures while largely preserving the advantages of both. It does so by a return to the old "stored procedure" architecture, but using an extremely powerful, enterprise tested language called clojure for writing and implementing business logic. The language is extremely productive and programmer friendly, and has been used successfully by numerous businesses across a wide variety of use-cases. In addition, since programs are written at the level of a function, they are easy to manage and write on the level of their individual functionality, preserving the ease of develpment of the microservices architecture, but because they are centralized within a single system, the business logic is easy to manage and optimize for management and development operations. Because Dataworks is distributed by default, and horizontally scalable with little-to-no configuration, the scalability advantage of microservices is also preserved, but because only a single application contains all the business logic, the ability to manage the attack service is increased, and thus the overall attack surface can be reduced. The distributed nature of Dataworks makes it highly fault tolerant, and thus suitable for critical business applications. The stream processing and REST API capabilities make it suitable for modern businesses with a high capacity for integration and for business process automation, which is the true purpose of Dataworks.
-
+Dataworks solves the issues of the monolithic and microservice architectures while largely preserving the advantages of both. It does so by a return to the old "stored procedure" way of doing things, but using an extremely powerful, enterprise tested language called clojure for writing and implementing business logic. The language is extremely productive and programmer friendly, and has been used successfully by numerous businesses across a wide variety of use-cases. In addition, since programs are written at the level of a function, they are easy to manage and write on the level of their individual functionality, preserving the ease of develpment of the microservices architecture, but because they are centralized within a single system, the business logic is easy to manage and optimize for management and development operations. Because Dataworks is distributed by default, and horizontally scalable with little-to-no configuration, the scalability advantage of microservices is also preserved, So far as security is concerned, because only a single application contains all the business logic, the ability to manage the attack surface is increased, and thus the overall attack surface can be reduced. The distributed nature of Dataworks makes it highly fault tolerant, and thus suitable for critical business applications. The stream processing and REST API capabilities make it suitable for modern businesses with a high capacity for integration and for business process automation, which is the true purpose of Dataworks.
 
 ** Installation
 To run a Dataworks node, point your config.edn to a running kafka broker (see example-config.edn) and then run:
@@ -23,3 +61,17 @@ We recommend running it behind NginX in production, with a reverse proxy configu
 
 ** TODO Basic Usage
 See the demo-app in the documentation for further details.
+** Project Roadmap
+*** 0.5 Initial release (You Are Here)
+**** accepts and evaluates stored-functions via REST API
+**** can dynamically create user-level REST API endpoints
+**** can produce to and consume from Kafka topics
+**** can add to and query bitemporal document store (Crux DB)
+*** 0.6 timer utils
+Running hourly/weekly reports are a common business use case. As such being able to do things on a timer/schedule is very important. Doing so in a distributed context is slightly more challenging, which is why it's not in the initial release.
+*** 0.7 release project/editing environment
+Developers should be able to develop stored functions in an IDE-like environment, similar to how they program today. We intend to release utils for liquid and emacs with utility functions for interfacing code with dataworks.
+*** 0.8 better dependency management
+*** 0.9 add replay functionality
+Given the nature of our database and how stored-functions work, it should be possible to capture and "replay" the various HTTP requests and/or kafka streams with modified developer-level code, for testing purposes. One should be able to receive an HTTP request, or series of HTTP requests, or a series of kafka messages and test those requests/messages with multiple iterations of code to see what would have happened in real-life scenarios with the modified code. (given the bitemporality of the user-db, one should even be able to "merge" the result of the test, with the production db, if the data in the production db is incorrect, and can do so without losing the initial production data or the test data, however, that functionality is not to be expected in 0.8).
+
