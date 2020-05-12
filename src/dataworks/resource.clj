@@ -40,8 +40,8 @@
    {:id (get-entity-param function-type "create")
     :description (str "resource for new or all"
                       (stringify-keyword function-type) "s")
-    :authentication auth/dev-authentication
-    :authorization auth/dev-authorization
+;;    :authentication auth/dev-authentication
+;;    :authorization auth/dev-authorization
     :methods {:get
               {:produces "application/json"
                :response (fn [ctx]
@@ -60,8 +60,8 @@
    {:id (get-entity-param function-type "update")
     :description (str "resource for existing individual "
                       (stringify-keyword function-type) "s")
-    :authentication auth/dev-authentication ;; TODO hierarchical
-    :authorization auth/dev-authorization   ;;      role auth
+;;    :authentication auth/dev-authentication ;; TODO hierarchical
+;;    :authorization auth/dev-authorization   ;;      role auth
     :path-info? true
     :methods {:get
               {:produces "application/json"
