@@ -37,11 +37,6 @@
   :stop
   ((:close svr)))
 
-
-(defstate stored-fns
-  :start
-  (start-functions!))
-
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]

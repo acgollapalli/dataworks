@@ -1,8 +1,8 @@
 (ns dataworks.app-graph
   (:require
    [clojure.core.async :refer [>! close! go]]
-   [dataworks.utils.function :refer [start-function-xform]]
    [dataworks.utils.kafka :refer [consumer-instance]]
+   [dataworks.utils.common :refer [print-cont]]
    [dataworks.utils.stream :as stream]
    [mount.core :refer [defstate]]))
 
@@ -32,8 +32,8 @@
 
    {:stream/name :stream/dataworks.internal.functions
     :stream/upstream #{:kafka/dataworks.internal.functions}
-    :stream/buffer 1000
-    :stream/transducer start-function-xform}))
+    :stream/buffer 10
+    :stream/transducer (map print-cont)}))
 
 (def edges
   (into []

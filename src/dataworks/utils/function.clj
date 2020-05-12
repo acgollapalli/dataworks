@@ -1,10 +1,12 @@
 (ns dataworks.utils.function
   (:require
-   [dataworks.db.app-db :refer [get-stored-functions]]
+   [crux.api :as crux]
+   [dataworks.db.app-db :refer [get-stored-functions app-db]]
    [dataworks.collector :refer [add-collector!]]
    [dataworks.transactor :refer [add-transactor!]]
    [dataworks.transformer :refer [add-transformer!]]
-   [dataworks.stream :refer [start-stream! wire-streams!]]))
+   [dataworks.stream :refer [start-stream! wire-streams!]]
+   [mount.core :refer [defstate] :as mount]))
 
 (defn start-stored-function!
   [f]
@@ -28,3 +30,7 @@
                 (get-stored-functions))]
     (wire-streams!)
     f))
+
+(defstate stored-fns
+  :start
+  (start-functions!))
