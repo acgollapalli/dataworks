@@ -37,7 +37,8 @@
 
 (def edges
   (into []
-        (map stream/get-edges)
+        (comp (map stream/get-edges)
+              cat)
         streams))
 
 (defstate node-state
@@ -60,4 +61,4 @@
 
 (defstate edge-state
   :start
-  (stream/apply-graph! @nodes edges))
+  (stream/apply-graph! edges @nodes))

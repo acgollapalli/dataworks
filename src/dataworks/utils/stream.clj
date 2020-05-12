@@ -106,11 +106,10 @@
    (case (namespace name)
      "kafka" (apply handle-topic
                     (if-conj
-                        (list
-                         stream
+                        [stream
                          buffer
                          transducer
-                         error-handler)
+                         error-handler]
                       instance))
      "stream" (handle-stream stream
                              buffer
