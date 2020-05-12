@@ -144,10 +144,7 @@
 
 (defn create-collector! [collector]
   (->? collector
-       (set-ns :collector)
-       (blank-field? :collector/name
-                     :collector/path
-                     :collector/resource)
+       (blank-field? :name :path :resource)
        valid-path?
        valid-name?
        (parseable? :resource)
