@@ -1,10 +1,8 @@
 (ns dataworks.app-graph
   (:require
    [clojure.core.async :refer [>! close! go]]
-   [dataworks.db.app-db :refer [entity
-                                get-dependencies]]
+   [dataworks.utils.function :refer [start-function-xform]]
    [dataworks.utils.kafka :refer [consumer-instance]]
-   [dataworks.utils.common :refer [order-nodes]]
    [dataworks.utils.stream :as stream]
    [mount.core :refer [defstate]]))
 
@@ -35,18 +33,7 @@
    {:stream/name :stream/dataworks.internal.functions
     :stream/upstream #{:kafka/dataworks.internal.functions}
     :stream/buffer 1000
-    :stream/transducer (map
-                        (fn [{:crux.db/keys [id]}]
-                          (doseq [dep (order-nodes
-                                       name
-                                       (get-dependencies
-                                        id))]
-                            (stream!
-                             ;; will this cause deps to go
-                             ;; out of order if there are more
-                             ;; that 1000 deps to handle?
-                             :stream/internal.functions
-                             dep))))}))
+    :stream/transducer start-function-xform}))
 
 (def edges
   (into []
