@@ -20,12 +20,14 @@
 
 (defstate app-db
   :start
-  (crux/sync
-   (crux/start-node
-    (merge
-     {:crux.node/topology '[crux.kafka/topology
-                            crux.kv.rocksdb/kv-store]}
-     internal-kafka-settings)))
+  (let [db (crux/start-node
+            (merge
+             {:crux.node/topology '[crux.kafka/topology
+                                    crux.kv.rocksdb/kv-store]}
+             internal-kafka-settings))]
+    (crux/sync db)
+    db)
+
   :stop
   (.close app-db))
 

@@ -43,18 +43,16 @@
 
 (defn start-stored-function!
   [f]
-  (let [f (entity f)]
-    (case (:stored-function/type f)
-      :collector (add-collector! f)
-      :transformer (add-transformer! f)
-      :transactor (add-transactor! f)
-      :stream (start-stream! f))))
+  (case (:stored-function/type f)
+    :collector (add-collector! f)
+    :transformer (add-transformer! f)
+    :transactor (add-transactor! f)
+    :stream (start-stream! f)))
 
 (def start-function-xform
   (comp
-   (map first)
    (map (juxt (comp :status start-stored-function!)
-              identity))
+              :crux.db/id))
    (filter #(= :success (first %))) ;; TODO add error-logging
    (map second)))
 
