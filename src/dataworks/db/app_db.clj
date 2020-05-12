@@ -20,11 +20,12 @@
 
 (defstate app-db
   :start
-  (crux/start-node
-   (merge
-    {:crux.node/topology '[crux.kafka/topology
-                           crux.kv.rocksdb/kv-store]}
-    internal-kafka-settings)) ;;rocksdb can't be used twice
+  (crux/sync
+   (crux/start-node
+    (merge
+     {:crux.node/topology '[crux.kafka/topology
+                            crux.kv.rocksdb/kv-store]}
+     internal-kafka-settings)))
   :stop
   (.close app-db))
 

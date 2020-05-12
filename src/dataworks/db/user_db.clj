@@ -18,11 +18,12 @@
 
 (defstate user-db
   :start
-  (crux/start-node
-   (merge
-    {:crux.node/topology '[crux.kafka/topology
-                           crux.kv.rocksdb/kv-store]}
-    kafka-settings))
+  (crux/sync
+   (crux/start-node
+    (merge
+     {:crux.node/topology '[crux.kafka/topology
+                            crux.kv.rocksdb/kv-store]}
+     kafka-settings)))
   :stop
   (.close user-db))
 
