@@ -150,7 +150,9 @@
        (parseable? :resource)
        (function-already-exists? :collector)
        other-collector-with-path?
+       print-cont
        db-fy
+       print-cont
        (dependencies? :collector)
        evalidate
        added-to-db?
@@ -164,7 +166,9 @@
        (has-parsed-params? :collector :resource)
        (valid-update? :collector :path :resource)
        valid-path?
+       print-cont
        db-fy
+       print-cont
        (dependencies? :collector)
        evalidate
        added-to-db?

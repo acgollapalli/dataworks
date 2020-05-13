@@ -91,6 +91,7 @@
           (println "Transformers Started!")
           (println "Transformers Failed to Start:"
                    (map :name status))))))
+
 (defstate transformer-chan
   :start
   (let [c (chan
@@ -111,7 +112,3 @@
           c))
   :stop
   (close! transformer-chan))
-
-;;(defstate transformer-state
-;;  :start (start-transformers!)
-;;  :stop (reset! transformer-map {}))
