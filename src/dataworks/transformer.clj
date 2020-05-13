@@ -64,7 +64,7 @@
        (parseable? :function)
        (function-already-exists? :transformer)
        db-fy
-       (dependencies? :transformer)
+       dependencies?
        evalidate
        added-to-db?
        apply-transformer!))
@@ -77,7 +77,7 @@
        (add-current-stored-function :transformer)
        (valid-update? :transformer :function)
        db-fy
-       (dependencies? :transformer)
+       dependencies?
        evalidate
        added-to-db?
        apply-transformer!))

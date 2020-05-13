@@ -142,7 +142,7 @@
        (parseable? :transducer :error-handler)
        (function-already-exists? :stream)
        db-fy
-       (dependencies? :stream)
+       dependencies?
        validate-buffer
        transducer-has-buffer?
        error-handler-has-transducer?
@@ -157,7 +157,7 @@
        (has-parsed-params? :stream :transducer :error-handler)
        (function-already-exists? :stream)
        db-fy
-       (dependencies? :stream)
+       dependencies?
        validate-buffer
        transducer-has-buffer?
        error-handler-has-transducer?

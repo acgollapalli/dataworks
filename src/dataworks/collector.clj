@@ -150,15 +150,14 @@
        (parseable? :resource)
        (function-already-exists? :collector)
        other-collector-with-path?
-       print-cont
        db-fy
-       print-cont
-       (dependencies? :collector)
+       dependencies?
        evalidate
        added-to-db?
        apply-collector!))
 
 (defn update-collector! [name params]
+  (println params)
   (->? params
        (updating-correct-function? name)
        (add-current-stored-function :collector)
@@ -166,10 +165,8 @@
        (has-parsed-params? :collector :resource)
        (valid-update? :collector :path :resource)
        valid-path?
-       print-cont
        db-fy
-       print-cont
-       (dependencies? :collector)
+       dependencies?
        evalidate
        added-to-db?
        apply-collector!))

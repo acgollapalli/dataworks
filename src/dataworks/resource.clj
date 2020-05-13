@@ -76,6 +76,7 @@
                (fn [ctx]
                  (let [name (get-in ctx [:request :path-info])
                        body (:body ctx)]
+                   (println "updating!")
                    (update! function-type name body)))}}}))
 
 (def user-sub

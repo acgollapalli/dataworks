@@ -81,7 +81,7 @@
        (parseable? :function)
        (function-already-exists? :transactor)
        db-fy
-       (dependencies? :transactor)
+       dependencies?
        evalidate
        added-to-db?
        apply-transactor!))
@@ -95,7 +95,7 @@
        (has-params? :transactor :name)
        (valid-update? :transactor :function)
        db-fy
-       (dependencies? :transactor)
+       dependencies?
        evalidate
        added-to-db?
        apply-transactor!))

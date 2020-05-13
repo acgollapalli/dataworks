@@ -481,11 +481,12 @@
 
 
 (defn dependencies?
-  [params function-type]
+  [params]
   (if-vector-first
     params
     dependencies?
-    (let [dependencies
+    (let [function-type (:stored-function/type params)
+          dependencies
           (into #{}
                 cat
                 ((juxt
