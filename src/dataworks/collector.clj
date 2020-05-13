@@ -180,6 +180,9 @@
                  (keyword :collector)))
             (map  ;; TODO add error handling.
              (fn [{:crux.db/keys [id]}]
+               ;; pretty sure this will result in collectors being
+               ;; evaluated twice. But this is harmless, so far as I
+               ;; can tell
                (add-collector! (entity id))))))]
     (stream/take-while c)
     (tap (get-in

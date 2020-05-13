@@ -1,6 +1,6 @@
 (ns dataworks.app-graph
   (:require
-   [clojure.core.async :refer [>! close! go]]
+   [clojure.core.async :refer [>! close! go untap-all]]
    [dataworks.utils.kafka :refer [consumer-instance]]
    [dataworks.utils.common :refer [print-cont]]
    [dataworks.utils.stream :as stream]
@@ -61,4 +61,6 @@
 
 (defstate edge-state
   :start
-  (stream/apply-graph! edges @nodes))
+  (stream/apply-graph! edges node-state)
+  :stop
+  (map (comp untap-all :output) (vals node-state)))

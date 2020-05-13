@@ -44,10 +44,13 @@
 
 (defn apply-graph!
   [graph nodes]
-  (map (fn [[input output]]
-         (tap (get-in nodes [input :output])
-              (get-in nodes [output :input])))
-       graph))
+  (reduce (fn [m [input output]]
+            (assoc m
+                   output
+                   (tap (get-in nodes [input :output])
+                        (get-in nodes [output :input]))))
+          {}
+          graph))
 
 (defn handle-topic
   "When the namespace of the stream name is kafka.
@@ -90,7 +93,9 @@
    represents a node in a dataflow graph."
   [params buffer transducer error-handler]
   (try
-    (let [write (chan buffer (comp transducer (filter some?)) error-handler)]
+    (let [write (chan buffer
+                      (comp transducer (filter some?))
+                      error-handler)]
       {:input write
        :output (mult write)})
     (catch Exception e
@@ -128,8 +133,7 @@
 (defn take-while
   [channel]
   (go-loop []
-    (alt! (timeout 1000) ([] (recur))
-          channel ([x]
-                   (when (some? x)
-                     ;; TODO add some logging here
-                     (recur))))))
+    (let [x (<! channel)]
+      (when (some? x)
+        ;; TODO add some logging here
+        (recur)))))

@@ -5,7 +5,6 @@
    [dataworks.resource :refer [creation-resource
                                update-resource
                                user-resource]]
-   [dataworks.utils.function :refer [start-functions!]]
    [mount.core :refer [defstate] :as mount]
    [yada.yada :refer [listener as-resource]])
   (:gen-class))
