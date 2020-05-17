@@ -22,24 +22,20 @@
 (defn consumer-instance
   "Create the consumer instance to consume
   from the provided kafka topic name"
-  ([consumer-topic name]
-   (consumer-instance consumer-topic name :edn))
-  ([consumer-topic name deserializer]
-   (consumer-instance consumer-topic name deserializer nil))
-  ([consumer-topic name deserializer settings]
+  ([{:keys [topic name format settings]}]
     (let [deserializers {:edn EdnDeserializer
                         :json JsonDeserializer}
          consumer-props
          (merge
           {"group.id" (str "dataworks/" name)
-           "key.deserializer" (deserializer deserializers)
-           "value.deserializer" (deserializer deserializers)
+           "key.deserializer" (format deserializers)
+           "value.deserializer" (format deserializers)
            "auto.offset.reset" "earliest"
            "enable.auto.commit" "true"}
           kafka-settings
           settings)]
      (doto (KafkaConsumer. consumer-props)
-       (.subscribe [consumer-topic])))))
+       (.subscribe [topic])))))
 
 (defn consume-record
   [record]

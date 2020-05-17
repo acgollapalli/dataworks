@@ -21,19 +21,17 @@
   (list
    ;; let's us know when functions need to be updated
    {:stream/name :kafka/dataworks.internal.functions
-    :stream/buffer 10
-    :stream/instance (consumer-instance
-                      "dataworks.internal.functions"
-                      nil
-                      :edn
-                      {"group.id"
-                       (str (java.util.UUID/randomUUID))})
-    :stream/transducer (map :value)}
+    :eval/buffer 10
+    :eval/instance (consumer-instance
+                    {:topic "dataworks.internal.functions"
+                     :name (str (java.util.UUID/randomUUID))
+                     :format :edn})
+    :eval/transducer (map :value)}
 
    {:stream/name :stream/dataworks.internal.functions
-    :stream/upstream #{:kafka/dataworks.internal.functions}
-    :stream/buffer 10
-    :stream/transducer (map print-cont)}))
+    :eval/upstream #{:kafka/dataworks.internal.functions}
+    :eval/buffer 10
+    :eval/transducer (map print-cont)}))
 
 (def edges
   (into []
@@ -48,10 +46,8 @@
                 (map
                  (juxt
                   :stream/name
-                  (fn [{:stream/keys [buffer transducer
-                                      error-handler] :as stream}]
-                    (stream/get-node stream buffer transducer
-                                     error-handler))))
+                  (fn [stream]
+                    (stream/get-node stream))))
                 streams))
   :stop
   (map close!

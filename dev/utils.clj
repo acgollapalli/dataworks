@@ -4,7 +4,9 @@
   "You'll want to just eval everything below this, when
    in dataworks.core in your REPL. Then run (-main) or
    (mount/start). Development is much easier that way.
-   Look for these in the docs.")
+   Look for these in the docs.
+   ... arguably the easiest way is to just eval the whole buffer")
+
 
 (def url (atom "http://localhost:3000/")) ;; configure me!
 
@@ -24,39 +26,43 @@
 (defmacro def-transformer
 ;;  TODO add docstring capability
   ([name args & form]
-   (swap! transformers
-          (fn [m]
-            (assoc m
-                   name
-                   {:name (stringify-keyword name)
-                    :function (pr-str (concat [args] form))})))))
+   (swap!
+    transformers
+    (fn [m]
+      (assoc m
+             name
+             {:name (stringify-keyword name)
+              :function (pr-str (concat ['fn args] form))})))))
 
 (defmacro def-collector
   ([name path form]
-   (swap! collectors
-          (fn [m]
-            (assoc m
-                   name
-                   {:name (stringify-keyword name)
-                    :resource (pr-str (concat [] form))})))))
+   (swap!
+    collectors
+    (fn [m]
+      (assoc m
+             name
+             {:name (stringify-keyword name)
+              :resource (pr-str (concat [] form))})))))
 
 (defmacro def-transactor
   ([name args & form]
-   (swap! transactors
-          (fn [m]
-            (assoc m
-                   name
-                   {:name (stringify-keyword name)
-                    :function (pr-str (concat [args] form))})))))
+   (swap!
+    transactors
+    (fn [m]
+      (assoc m
+             name
+             {:name (stringify-keyword name)
+              :function (pr-str (concat ['fn args] form))})))))
 
 
 (defn exists?
-  [fn-type f]
+  ([fn-type {:keys [name]}]
   (try (client/get
-        (str @url "app/"
-        (stringify-keyword fn-type) "/"
-        (:name f)))
-       (catch Exception e (println e))))
+        (str
+         @url "app/"
+         (stringify-keyword fn-type) "/"
+         name))
+       (catch Exception e (println e)))))
 
 (defn update-fn
   [fn-type f]

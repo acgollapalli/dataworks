@@ -23,47 +23,35 @@
             :details (.getMessage e)}))))
 
 (defn evalidate [params]
-  (if-vector-conj params
-                  "params"
-                  (->? params
-                       evals?
-                       function?)))
+  (let [f (->? params evals? function?)]
+    (if (= :failure (:status f))
+      f
+      (assoc params :eval/function f))))
 
 (defn add-transformer!
-  ([params]
-   (let [f (evalidate params)]
-     (if (not= (:status f) :failure)
-       (apply add-transformer! f)
-       f))) ;;... to pay respects
-  ([{:transformer/keys [name] :as params} f]
-   (swap! transformer-map #(assoc % (keyword name) f))
-   {:status :success
-    :message :transformer-added
-    :details params}))
+  [{:transformer/keys [name] :eval/keys [function] :as params}]
+  (if function
+    (do
+      (swap! transformer-map #(assoc % (keyword name) function))
+      {:status :success
+       :message :transformer-added
+       :details params})
+    (->? params evalidate add-transformer!)))
 
 (defn apply-transformer! [params]
   (stream! :kafka/dataworks.internal.functions
-           (select-keys (first params)
+           (select-keys params
                         [:crux.db/id
                          :stored-function/type]))
-  (apply add-transformer! params))
-
-(defn db-fy
-  [params]
-  (if-vector-first params
-                   db-fy
-                   {:crux.db/id (get-entity-param (:name params) :transformer)
-                    :transformer/name (keyword (:name params))
-                    :transformer/function (:function params)
-                    :stored-function/type :transformer}))
+  (add-transformer! params))
 
 (defn create-transformer! [transformer]
   (->? transformer
+       (set-ns :transformer)
        (blank-field? :name :function)
        valid-name?
        (parseable? :function)
-       (function-already-exists? :transformer)
-       db-fy
+       function-already-exists?
        dependencies?
        evalidate
        added-to-db?
@@ -71,12 +59,13 @@
 
 (defn update-transformer! [path-name transformer]
   (->? transformer
+       (set-ns :transformer)
        (updating-correct-function? path-name)
+       valid-name?
        (blank-field? :function)
        (parseable? :function)
-       (add-current-stored-function :transformer)
-       (valid-update? :transformer :function)
-       db-fy
+       add-current-stored-function
+       (valid-update? :function)
        dependencies?
        evalidate
        added-to-db?

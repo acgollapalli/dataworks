@@ -31,21 +31,6 @@
 ;; For information on yada resources see:
 ;;     https://github.com/juxt/yada/tree/master/doc
 ;; (The manual on the website is outdated. We're on the alpha version of yada.)
-;;
-;; Example: POST to app/collector
-;;
-;; {
-;;  "name" : "text",
-;;  "path" : "text",
-;;  "resource" : "{:id :text-send
-;;                 :description \"sends a text\"
-;;                 :methods {:post {:consumes #{\"text/plain\", \"application/json\"}
-;;                                  :produces \"text/plain\"
-;;                                  :response (fn [ctx]
-;;                                              (let [body (:body ctx)]
-;;                                                   (transact! :text body)
-;;                                                   \"success!\"))}}}"
-;; }
 
 (defn validate-path [path]
   (println "Validating path")
@@ -57,19 +42,18 @@
                        evald-path)) evald-path
           (string? evald-path) evald-path)))
 
-(defn valid-path? [params]
-  (if-vector-first params
-                   valid-path?
-                   (let [path (:path params)
-                         valid-path (validate-path path)]
-                     (if valid-path
-                       (assoc params :path valid-path)
-                       {:status :failure
-                        :message :invalid-path
-                        :details path}))))
+(defn valid-path?
+  [{:collector/keys [path] :as params}]
+  (let [valid-path (validate-path path)]
+    (if valid-path
+      (assoc params :collector/path valid-path)
+      {:status :failure
+       :message :invalid-path
+       :details path})))
 
 ;; TODO create separate path document to avoid race condition.
-(defn other-collector-with-path? [{:keys [path] :as collector}]
+(defn other-collector-with-path?
+  [{:collector/keys [path] :as collector}]
   (println "Checking for duplicate paths:" path)
   (if-let [other-collectors
            (not-empty
@@ -86,52 +70,39 @@
 (defn evalidate
   "validates, sanitizes, and evaluates the resource map from db
    CURRENTLY UNSAFE (but necessary)"
-  [params]
-  (if-vector-conj params
-                  "params"
-                  (binding [*ns* collector-ns]
-                    (println "Evalidating"
-                             (:collector/name params))
-                    (try (yada/resource
-                          (eval
-                           (:collector/resource params)))
-                         (catch Exception e
-                           {:status :failure
-                            :message :unable-to-evalidate-resource
-                            :details (.getMessage e)})))))
-
-(defn db-fy
-  [params]
-  (if-vector-first params
-                   db-fy
-                   {:crux.db/id (keyword "collector"
-                                         (:name params))
-                    :collector/name (keyword (:name params))
-                    :collector/resource (:resource params)
-                    :collector/path (:path params)
-                    :stored-function/type :collector}))
+  [{:collector/keys [name resource] :as collector}]
+  (binding [*ns* collector-ns]
+    (println "Evalidating:" name)
+    (try (assoc collector
+                :eval/resource
+                (yada/resource (eval resource)))
+         (catch Exception e
+           {:status :failure
+            :message :unable-to-evalidate-resource
+            :details (.getMessage e)}))))
 
 (defn add-collector!
-  ([{:collector/keys [resource] :as collector}]
-   (if-let [evald-resource (evalidate collector)]
-     (apply add-collector! evald-resource)))
-  ([{:collector/keys [path name] :as collector} evald-resource]
-   (println "Adding collector!" name)
-   (dosync
-    (swap! resource-map (fn [old-map]
-                          (assoc old-map name evald-resource)))
-    (swap! atomic-routes (fn [old-map]
-                           (assoc old-map path name)))
-    {:status :success
-     :message :collector-added
-     :details collector})))
+  ([{:collector/keys [path name] :eval/keys [resource] :as collector}]
+   (if resource
+     (dosync
+      (println "Adding collector!" name)
+      (swap! resource-map (fn [old-map]
+                            (assoc old-map name resource)))
+      (swap! atomic-routes (fn [old-map]
+                             (assoc old-map path name)))
+      {:status :success
+       :message :collector-added
+       :details collector})
+     (->? collector
+          evalidate
+          add-collector!))))
 
 (defn apply-collector! [params]
   (stream! :kafka/dataworks.internal.functions
-           (select-keys (first params)
+           (select-keys params
                         [:crux.db/id
                          :stored-function/type]))
-  (apply add-collector! params))
+  (add-collector! params))
 
 (defn start-collectors! []
   (println "Starting Collectors")
@@ -144,13 +115,13 @@
 
 (defn create-collector! [collector]
   (->? collector
+       (set-ns :collector)
        (blank-field? :name :path :resource)
        valid-path?
        valid-name?
        (parseable? :resource)
-       (function-already-exists? :collector)
+       function-already-exists?
        other-collector-with-path?
-       db-fy
        dependencies?
        evalidate
        added-to-db?
@@ -159,13 +130,14 @@
 (defn update-collector! [name params]
   (println params)
   (->? params
+       (set-ns :collector)
        (updating-correct-function? name)
-       (add-current-stored-function :collector)
-       (has-params? :collector :path)
-       (has-parsed-params? :collector :resource)
-       (valid-update? :collector :path :resource)
+       valid-name?
+       add-current-stored-function
+       (has-params? :path)
+       (has-parsed-params? :resource)
+       (valid-update? :path :resource)
        valid-path?
-       db-fy
        dependencies?
        evalidate
        added-to-db?

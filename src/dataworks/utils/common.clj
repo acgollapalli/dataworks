@@ -187,54 +187,6 @@
     (response-status ctx http-failure-code response)
     response))
 
-(defmacro if-vector-first
-  "Input: params
-   Output: (function params)
-   OR
-   Input: [params & others]
-   Output [(function params) & others]
-   Requires functions to be named functions. Naming the function
-   using (let [function expression] (if-vector-first ...)) seems
-   to work.
-   Uses the validation macro (->?), so if your function returns
-   a map with {:status :failure} it will return the map instead."
-  [params function expression]
-  `(if (vector? ~params)
-     (let [~'new (first ~params)
-           ~'others (rest ~params)
-           ~'my-conj #(into [] (conj ~'others %))]
-       (->? ~'new
-            ~function
-            ~'my-conj))
-     ~expression))
-
-(defmacro if-vector-conj
-  "Input: params
-   Output: [params (function params)]
-   OR
-   Input: [params & others]
-   Output [params other-1 ... other-n (function params)]
-   Relies on variable capture to substitute the first of the
-   parameter vector for the parameters field in your function.
-   Uses the validation macro (->?), so if your function returns
-   a map with {:status :failure} it will return the map instead."
-  [params quoted-param-variable expression]
-  `(let [~'plist (if (vector? ~params)
-                   ~params
-                   [~params])
-         ~(symbol quoted-param-variable)
-         (if (vector? ~params)
-           (first ~params)
-           ~params)
-         ~'my-conj #(into []
-                          (reverse
-                           (conj
-                            (reverse
-                             ~'plist)
-                            %)))]
-     (->? ~expression
-          ~'my-conj)))
-
 (defn vec-ify
   [maybe-coll]
   (if (coll? maybe-coll)
@@ -245,12 +197,12 @@
   "Checks to see whether the specified parameters are blank
    or nil. m must be a map. fields must be keywords. Values
    must be strings"
-  ([m & fields]
+  ([{:stored-function/keys [type] :as m} & fields]
    (loop [fields fields]
      (if fields
        (let [field (first fields)]
          (println "Checking for blank:" field)
-         (if (string/blank? (get-in m (vec-ify field)))
+         (if (string/blank? (get m (get-entity-param field type)))
            {:status :failure
             :message (generate-message
                       field "%-cannot-be-blank")}
@@ -260,12 +212,12 @@
 (defn missing-field?
   "Checks to see whether the specified parameters are missing.
    m must be a map. fields must be keywords."
-  ([m & fields]
+  ([{:stored-function/keys [type] :as m} & fields]
    (loop [fields fields]
      (if fields
        (let [field (first fields)]
          (println "Checking for null:" field)
-         (if (nil? (get-in m (vec-ify field)))
+         (if (nil? (get m (get-entity-param field type)))
            {:status :failure
             :message (generate-message
                       field "%-must-have-a-value")}
@@ -276,12 +228,12 @@
   "Checks to see whether the specified paramaters are empty,
    and whether they are collections. m must be a map.
    fields must be keywords"
-  ([m & fields]
+  ([{:stored-function/keys [type] :as m} & fields]
    (loop [fields fields]
      (if fields
        (let [field (first fields)]
          (println "Checking for empty collection:" field)
-         (if-let [val (get-in m (vec-ify field))]
+         (if-let [val (get m (get-entity-param field type))]
            (cond (not (coll? val))
                  (failure
                   (generate-message
@@ -297,28 +249,31 @@
        m))))
 
 (defn valid-name?
-  [{:keys [name] :as params}]
+  "Ensures that name can be converted to keyword.
+   Returns name as keyword."
+  [{:stored-function/keys [type] :as params}]
   (println "validating name" name)
-  (cond (not (string? name))
-        {:status :failure
-         :message :name-must-be-string}
-        (string/includes? name ":")
-        {:status :failure
-         :message :name-cannot-include-colon}
-        (string/starts-with? name "/")
-        {:status :failure
-         :message :name-cannot-start-with-slash}
-        (string/includes? name " ")
-        {:status :failure
-         :message :name-cannot-include-whitespace}
-        :else params))
+  (let [name ((get-entity-param :name type) params)]
+    (cond (not (string? name))
+          {:status :failure
+           :message :name-must-be-string}
+          (string/includes? name ":")
+          {:status :failure
+           :message :name-cannot-include-colon}
+          (string/starts-with? name "/")
+          {:status :failure
+           :message :name-cannot-start-with-slash}
+          (string/includes? name " ")
+          {:status :failure
+           :message :name-cannot-include-whitespace}
+          :else (assoc (get-entity-param :name type) (keyword name)))))
 
 (defn parseable?
   "Checks whether a string is parseable to edn.
    Doesn't eval. Accepts time-literals."
-  [{:keys [name] :as params} key]
-  (println "Checking" key "parseability: " name)
-  (if-let [value (get params key)]
+  [{:stored-function/keys [type] :crux.db/keys [id] :as params} key]
+  (println "Checking" key "parseability: " id)
+  (if-let [value (get params (get-entity-param key type))]
     (try (assoc params key (read-string value))
          (catch Exception e
            {:status :failure
@@ -329,28 +284,31 @@
 
 (defn updating-correct-function?
   "Checks name param against provided param."
-  [{:keys [name] :as params} path-name]
-  (println "Checking for correct function: "
-           path-name "," name)
-  (if name
-    (if (= name path-name)
-      params
-      {:status :failure
-       :message :name-param-does-not-match-path
-       :details
-       (str "We don't let you rename stored functions.\n"
-            "If it's changed enough to be renamed, "
-            "it's a different function at that point\n"
-            "Best thing is to retire the old function "
-            "and create a new one.")})
-    (assoc params :name path-name)))
+  [{:stored-function/keys [type] :as params} path-name]
+  (let [key (get-entity-param :name type)
+        name (get params key)]
+    (println "Checking for correct function: " path-name "," name)
+    (if name
+      (if (= name path-name)
+        params
+        {:status :failure
+         :message :name-param-does-not-match-path
+         :details
+         (str "We don't let you rename stored functions.\n"
+              "If it's changed enough to be renamed, "
+              "it's a different function at that point\n"
+              "Best thing is to retire the old function "
+              "and create a new one.")})
+      (assoc params key path-name))))
 
 (defn has-params?
   "Checks for presence of params in new function. If absent,
    it adds them from the current function. function-type and
    params must be keywords."
-  [[params current-function] function-type & params?]
-  (loop [params? params?
+  [params & params?]
+  (let [function-type (:stored-function/type params)
+        current-function (:current/function params)]
+    (loop [params? params?
          input [params current-function]]
 
     (if (and params?
@@ -367,50 +325,53 @@
                           current-function))
                   current-function]
                  [params current-function])))
-      input)))
+      input))))
 
 (defn has-parsed-params?
   "Checks for presence of params that are meant to be parsed
    in new function. If present, it parses them. If absent,
    it adds them from the current function. function-type and
    params must be keywords."
-  [[params current-function] function-type & params?]
-  (loop [params? params?
-         input [params current-function]]
-    (if (and params?
-             (not= (:status input) :failure))
-      (recur (next params?)
-             (let [param (first params?)]
-               (println "Checking for" param)
-               (if-not (get params param)
-                 [(assoc params param
-                         ((keyword
-                           (stringify-keyword function-type)
-                           param)
-                          current-function))
-                  current-function]
-                 (let [parsed (parseable? params param)
-                       not-parsed (:status parsed)]
-                   (if (= not-parsed :failure)
-                     not-parsed
-                     [parsed current-function])))))
-      input)))
+  [params & params?]
+  (let [function-type (:stored-function/type params)
+        current-function (:current/function params)]
+    (loop [params? params?
+           input params]
+      (if (and params?
+               (not= (:status input) :failure))
+        (recur (next params?)
+               (let [param (get-entity-param (first params?)
+                                             function-type)]
+                 (println "Checking for" param)
+                 (if-not (get params param)
+                   (assoc params
+                          param
+                          ((get-entity-param param function-type)
+                            current-function))
+                   (let [parsed (parseable? params param)
+                         not-parsed (:status parsed)]
+                     (if (= not-parsed :failure)
+                       not-parsed
+                       parsed)))))
+        input))))
 
 (defn valid-update?
   "Checks if any of the params? have been changed from
    the current stored function. If they have, then we
    return the params map. If they haven't, then we
    return the failure map"
-  [[params current-function] function-type & params?]
-  (println "Checking if valid update.")
-  (if (every? #(= (get params %)
-                  (get current-function
-                       (get-entity-param % function-type)))
-              params?)
-    {:status :failure
-     :message (generate-message function-type
-                                "no-change-from-existing-%")}
-    [params current-function]))
+  [params & params?]
+  (let [function-type (:stored-function/type params)
+        current-function (:current/function params)]
+    (println "Checking if valid update.")
+    (if (every? #(= (get params %)
+                    (get current-function
+                         (get-entity-param % function-type)))
+                params?)
+      {:status :failure
+       :message (generate-message function-type
+                                  "no-change-from-existing-%")}
+      params)))
 
 (defn function?
   "Checks if function is function."
@@ -420,104 +381,68 @@
     {:status :failure
      :message :function-param-does-not-evaluate-to-function}))
 
-;; Thanks whocaresanyway on stack exchange.
-(defn arg-count [f]
-  (let [m (first (.getDeclaredMethods (class f)))
-        p (.getParameterTypes m)]
-    (alength p)))
-
-(defn one-arg? [function]
-  (if (= 1
-         (arg-count function))
-    function
-    {:status :failure
-     :message :function-param-must-have-single-arg}))
-
-(defn if-assoc
-  [map & kvs]
-  (loop [map map
-         kvs kvs]
-    (let [return (if (second kvs)
-                   (apply assoc map (take 2 kvs))
-                   map)]
-      (if kvs
-        (recur return
-               (next (next kvs)))
-        return))))
-
-(defn if-conj
-  [coll & values]
-  (loop [coll coll
-         values (reverse values)]
-    (if values
-      (if (first values)
-        (recur (conj coll (first values))
-               (next values))
-        (recur coll
-               (next values)))
-      coll)))
-
 (defn select-ns-keys
-  "ns must be a string"
-  [ns map]
+  "Like select keys, but for the namespaces of keys"
+  [m & ns]
   (into
    {}
    (filter
-    #(= ns
-        (namespace
-         (first %))))
-   map))
+    (fn [[k v]]
+      (some
+       (partial = (namespace k))
+       (map stringify-keyword ns))))
+   m))
 
 (defn exclude-ns-keys
-  "ns must be a string"
-  [ns map]
+  "Like dissoc but for namespaces of keys"
+  [m & ns]
   (into
    {}
    (filter
-    #(not= ns
-           (namespace
-            (first %))))
-   map))
+    (fn [[k v]]
+      (not-any?
+       (partial = (namespace k))
+       (map stringify-keyword ns))))
+   m))
 
 
 (defn dependencies?
+  "I don't think we actually use this anymore. But it's probably
+   still nice to have the data for debugging purposes."
   [params]
-  (if-vector-first
-    params
-    dependencies?
-    (let [function-type (:stored-function/type params)
-          dependencies
-          (into #{}
-                cat
-                ((juxt
-                  (comp
-                   (partial map
-                            #(get-entity-param
-                              (keyword %)
-                              :transformer))
-                   (partial get-names 'transformers))
-                  (partial recursive-filter
-                           #(= (first %) 'transact!)
-                           #(conj '()
-                                  (get-entity-param
-                                   (second %)
-                                   :transactor)))
-                  (partial recursive-filter
-                           #(= (first %) 'stream!)
-                           #(conj '()
-                                  (second %))))
-                 ((get-entity-param :function function-type)
-                  params)))]
-      (if-not (empty? dependencies)
-        (assoc params
-               :stored-function/dependencies
-               dependencies)
-        params))))
+  (let [function-type (:stored-function/type params)
+        dependencies
+        (into #{}
+              cat
+              ((juxt
+                (comp
+                 (partial map
+                          #(get-entity-param
+                            (keyword %)
+                            :transformer))
+                 (partial get-names 'transformers))
+                (partial recursive-filter
+                         #(= (first %) 'transact!)
+                         #(conj '()
+                                (get-entity-param
+                                 (second %)
+                                 :transactor)))
+                (partial recursive-filter
+                         #(= (first %) 'stream!)
+                         #(conj '()
+                                (second %))))
+               ((get-entity-param :function function-type)
+                params)))]
+    (if-not (empty? dependencies)
+      (assoc params
+             :stored-function/dependencies
+             dependencies)
+      params)))
 
 
 (defn paths
   "returns all paths from start to end along the graph
-   specified via edges "
+   specified via edges. (not used by the app anymore)"
   ([edges start end]
    (recursive-filter #(keyword? (first %))
                      (paths edges start end (list start))))
@@ -546,7 +471,8 @@
    specified via edges.
    This is useful for figuring out the order in which
    to recompile functions depending on the root function
-   in which the dependency relations are specified in edges."
+   in which the dependency relations are specified in edges.
+   (not used by the app anymore)"
   [root edges]
    (map second
        (sort-by first
@@ -586,11 +512,12 @@
   print-me)
 
 (defn set-ns
-  [m n]
-  (into {}
+  [params fn-type]
+  (into {:stored-function/fn-type fn-type
+         :crux.db/id (get-entity-param (:name params) fn-type)}
          (map
           (fn [[k v]]
-            [(keyword (stringify-keyword n)
+            [(keyword (stringify-keyword fn-type)
                       (stringify-keyword k))
              v]))
-         m))
+         params))

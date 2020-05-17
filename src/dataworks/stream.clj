@@ -39,39 +39,24 @@
     (failure (:cause :transducer-must-be-transducer))))
 
 (defn evalidate-transducer
-  [transducer]
-  (->? transducer
-       evals?
-       transducer?))
+  [{:stream/keys [transducer] :as stream}]
+  (let [xform (->? transducer evals? transducer?)]
+    (if (= (:status xform) :failure)
+      xform
+      (assoc stream :eval/transducer xform))))
 
 (defn evalidate-error-handler
-  [error-handler]
-  (evals? error-handler))
-
-(defn db-fy
-  "Create a map suitable for being a document in our db"
-  [params]
-  (if-vector-first
-   params
-   db-fy
-   (let [{:keys [name buffer transducer
-                 error-handler upstream]} params
-         nodes-upstream (if upstream
-                          (set (map keyword upstream)))]
-     (if-assoc
-      {:crux.db/id (keyword name)
-       :stream/name (keyword name)}
-      :stream/upstream nodes-upstream
-      :stream/buffer buffer
-      :stream/transducer transducer
-      :stream/error-handler error-handler))))
+  [{:stream/keys [error-handler] :as stream}]
+  (let [xform (evals? error-handler)]
+    (if (= (:status xform) :failure)
+      xform
+      (assoc stream :eval/error-handler xform))))
 
 (defn add-stream!
   "Add stream to streams."
-  [[{:stream/keys [name] :as stream}
-    [buffer transducer error-handler]]]
+  [{:stream/keys [name] :as stream}]
   (let [ns (namespace name)
-        node (get-node stream buffer transducer error-handler)
+        node (get-node stream)
         subgraph (get-edges stream)]
     (if (not= (:status node) :failure)
       (do ;; does not need to be dosync
@@ -84,68 +69,56 @@
 
 (defn update-stream!
   "close old stream and add new one"
-  [[{:stream/keys [name] :as stream}
-    params]]
+  [{:stream/keys [name] :as stream}]
   (map close!
        (channel-filter (vals (name @nodes))))
-  (add-stream! [stream params]))
+  (add-stream! stream))
 
 (defn validate-buffer
-  [params]
-  (if-vector-conj
-      params
-      "params"
-      (let [{:stream/keys [buffer]} params]
-        (if (int? buffer)
-          buffer
-          (let [b ((first (keys buffer))
-                   {:sliding-buffer sliding-buffer
-                    :dropping-buffer dropping-buffer})]
-            (if b
-              [(b (first (vals buffer)))]
-              (failure :invalid-buffer buffer)))))))
+  [{:stream/keys [buffer] :as params}]
+  (if (int? buffer)
+    buffer
+    (let [b ((first (keys buffer))
+             {:sliding-buffer sliding-buffer
+              :dropping-buffer dropping-buffer})]
+      (if b
+        (assoc params :eval/buffer b)
+        (failure :invalid-buffer buffer)))))
 
 (defn transducer-has-buffer?
   "To use a transducer (transducer) on a core.async channel,
    the channel must have a buffer."
-  [params]
-  (let [{:stream/keys [buffer transducer]} (first params)
-        validated-params (last params)]
-      (if transducer
-        (if buffer
-          (conj (drop-last params)
-                (conj validated-params
-                      (evalidate-transducer transducer)))
-          (failure :must-specify-buffer-to-use-transducer))
-        params)))
+  [{:stream/keys [buffer transducer] :as params}]
+  (if transducer
+    (if buffer
+      params
+      (failure :must-specify-buffer-to-use-transducer))
+    params))
 
 (defn error-handler-has-transducer?
   "To use a error-handler (error-handler) on a core.async
-   channel, the channel must have a transducer."
-  [params]
-  (let [{:stream/keys [transducer error-handler]} (first params)
-        validated-params (last params)]
-      (if error-handler
-        (if transducer
-          (conj (drop-last params)
-                (conj validated-params
-                      (evalidate-error-handler error-handler)))
-          (failure
-           :must-specify-transducer-to-use-error-handler))
-        params)))
+     channel, the channel must have a transducer."
+  [{:stream/keys [transducer error-handler] :as params}]
+  (if error-handler
+    (if transducer
+      params
+      (failure :must-specify-transducer-to-use-error-handler))
+    params))
 
 (defn create-stream!
   [stream]
   (->? stream
+       (set-ns :stream)
        (blank-field? :name)
        valid-name?
        (parseable? :transducer :error-handler)
        (function-already-exists? :stream)
-       db-fy
        dependencies?
        validate-buffer
        transducer-has-buffer?
+       evalidate-transducer
        error-handler-has-transducer?
+       evalidate-error-handler
        added-to-db?
        add-stream!
        update-graph!))
@@ -153,14 +126,18 @@
 (defn update-stream!
   [stream]
   (->? stream
+       (set-ns :stream)
+       updating-correct-function?
+       valid-name?
        (add-current-stored-function :stream)
        (has-parsed-params? :stream :transducer :error-handler)
        (function-already-exists? :stream)
-       db-fy
        dependencies?
        validate-buffer
        transducer-has-buffer?
+       evalidate-transducer
        error-handler-has-transducer?
+       evalidate-error-handler
        added-to-db?
        update-stream!
        update-graph!))
@@ -170,7 +147,9 @@
   (->? stream
        validate-buffer
        transducer-has-buffer?
+       evalidate-transducer
        error-handler-has-transducer?
+       evalidate-error-handler
        add-stream!))
 
 (defstate stream-chan

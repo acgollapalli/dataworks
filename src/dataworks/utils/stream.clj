@@ -57,41 +57,39 @@
    Represents a kafka topic.
    Please note that any supplied transducer is only used on
    the consumer side, rather than the producer side."
-  ([{:stream/keys [name format] :as stream}
-    buffer transducer error-handler]
-   (handle-topic stream buffer transducer error-handler
-                (apply kafka/consumer-instance
-                       (if-conj [(clojure.core/name name)
-                                 "dataworks"]
-                                   format))))
-  ([{:stream/keys [name format]} buffer
-    transducer error-handler instance]
-    (let [write (chan buffer transducer error-handler)
-          read (chan buffer)
-          topic (clojure.core/name name)]
-      ;; consumes kafka-topic and puts it on channel
-      (go-loop [msg (kafka/consume-records instance)]
-        (if-not (empty? msg)
-          (when (>! write (first msg))
-            (recur (next msg)))
-          (recur (kafka/consume-records instance))))
-      ;; produces to kafka-topic from channel
-      (go-loop [result (<! read)]
-        (when result
-          (apply kafka/produce!
-                 (if-conj [topic
-                           result]
-                   format))
-          (recur (<! read))))
-      ;; the channels to put in our node graph
-      {:core write
-       :input read
-       :output (mult write)})))
+  [{:stream/keys [name format]
+    :eval/keys [buffer transducer error-handler instance]}]
+  (let [write (chan buffer transducer error-handler)
+        read (chan buffer)
+        topic (clojure.core/name name)
+        instance (if instance
+                   instance
+                   (kafka/consumer-instance
+                    {:topic (clojure.core/name name)
+                     :name "dataworks"
+                     :format format}))]
+    ;; consumes kafka-topic and puts it on channel
+    (go-loop [msg (kafka/consume-records instance)]
+      (if-not (empty? msg)
+        (when (>! write (first msg))
+          (recur (next msg)))
+        (recur (kafka/consume-records instance))))
+    ;; produces to kafka-topic from channel
+    (go-loop [result (<! read)]
+      (when result
+        (if format
+          (kafka/produce! topic result format)
+          (kafka/produce! topic result))
+        (recur (<! read))))
+    ;; the channels to put in our node graph
+    {:core write
+     :input read
+     :output (mult write)}))
 
 (defn handle-stream
   "When the namespace of the stream name is stream...
    represents a node in a dataflow graph."
-  [params buffer transducer error-handler]
+  [{:eval/keys [buffer transducer error-handler]}]
   (try
     (let [write (chan buffer
                       (comp transducer (filter some?))
@@ -103,23 +101,10 @@
 
 (defn get-node
   ;; TODO fix this to use maps instead of argument lists
-  ([{:stream/keys [name] :as stream} buffer transducer
-    error-handler]
-   (get-node stream buffer transducer error-handler nil))
-  ([{:stream/keys [name] :as stream} buffer
-    transducer error-handler instance]
+  ([{:stream/keys [name] :as stream}]
    (case (namespace name)
-     "kafka" (apply handle-topic
-                    (if-conj
-                        [stream
-                         buffer
-                         transducer
-                         error-handler]
-                      instance))
-     "stream" (handle-stream stream
-                             buffer
-                             transducer
-                             error-handler)
+     "kafka" (handle-topic stream)
+     "stream" (handle-stream stream)
      (failure :namespace-must-be-kafka-or-stream))))
 
 (defn channel-filter

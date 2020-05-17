@@ -35,52 +35,44 @@
 (defn evals? [{:transactor/keys [name function] :as params}]
   (println "evalidating" name)
   (binding [*ns* transactor-ns]
-    (try (eval function)
+    (try
+      (eval function)
          (catch Exception e
            {:status :failure
             :message :unable-to-evalidate-function
             :details (.getMessage e)}))))
 
 (defn evalidate [params]
-  (if-vector-conj params
-                  "params"
-                  (->? params
-                       evals?
-                       function?)))
+  (let [f (->? params evals? function?)]
+    (if (= :failure (:status f))
+      f
+      (assoc params :eval/function f))))
 
 (defn add-transactor!
-  ([{:transactor/keys [name function] :as params}]
-   (if-let [f (evalidate params)]
-     (apply add-transactor! f)))
-  ([{:transactor/keys [name] :as params} f]
-   (swap! transactor-map #(assoc % (keyword name) f))
-   {:status :success
-    :message :transactor-added
-    :details params}))
+  [{:transactor/keys [name] :eval/keys [function] :as params}]
+  (if function
+    (do
+      (swap! transactor-map
+             #(assoc % (keyword name) function))
+      {:status :success
+       :message :transactor-added
+       :details params})
+    (->? params evalidate add-transactor!)))
 
 (defn apply-transactor! [params]
   (stream! :kafka/dataworks.internal.functions
-           (select-keys (first params)
+           (select-keys params
                         [:crux.db/id
                          :stored-function/type]))
-  (apply add-transactor! params))
-
-(defn db-fy
-  [params]
-  (if-vector-first params
-                   db-fy
-                   {:crux.db/id (keyword "transactor" (:name params))
-                    :transactor/name (keyword (:name params))
-                    :transactor/function (:function params)
-                    :stored-function/type :transactor}))
+  (add-transactor! params))
 
 (defn create-transactor! [transactor]
   (->? transactor
+       (set-ns :transactor)
        (blank-field? :name :function)
        valid-name?
        (parseable? :function)
-       (function-already-exists? :transactor)
-       db-fy
+       function-already-exists?
        dependencies?
        evalidate
        added-to-db?
@@ -88,13 +80,14 @@
 
 (defn update-transactor! [path-name transactor]
   (->? transactor
+       (set-ns :transactor)
        (updating-correct-function? path-name)
+       valid-name?
        (blank-field? :function)
        (parseable? :function)
-       (add-current-stored-function :transactor)
-       (has-params? :transactor :name)
-       (valid-update? :transactor :function)
-       db-fy
+       add-current-stored-function
+       (has-params? :name)
+       (valid-update? :function)
        dependencies?
        evalidate
        added-to-db?
@@ -128,7 +121,3 @@
           c))
   :stop
   (close! transactor-chan))
-
-;;(defstate transactor-state
-;;  :start (start-transactors!)
-;;  :stop (reset! transactor-map {}))

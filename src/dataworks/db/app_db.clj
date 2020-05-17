@@ -75,11 +75,11 @@
                           function-type]]}))))
 
 (defn function-already-exists?
-  [{:keys [name] :as params} function-type]
-  (println "checking for duplicate" name)
-  (if (get-stored-function name function-type)
+  [{:crux.db/keys [id] :stored-function/keys [type] :as params}]
+  (println "checking for duplicate" id)
+  (if (get-stored-function id)
     {:status :failure
-     :message (generate-message function-type
+     :message (generate-message type
                                 "%-already-exists")}
     params))
 
@@ -94,7 +94,9 @@
   (println "Adding current" function-type ":" name ".")
   (if-let [current (get-stored-function
                     name function-type)]
-    [params (get-stored-function name function-type)]
+    (assoc params
+           :current/function
+           (get-stored-function name function-type))
     {:status :failure
      :message :stored-function-does-not-exist
      :details (str "The " (stringify-keyword function-type)
@@ -103,28 +105,26 @@
                    "can update it.")}))
 
 (defn added-to-db?
-  [params]
+  [{:current/keys [function]
+    :stored-function/keys [type]
+    :as params}]
   (println "adding-to-db")
-  (let [db-fn (first params)
-        success [db-fn (last params)]]
+  (let [db-fn (select-ns-keys params type :stored-function)]
     (try
-      (let [tx (cond (> 3  (count params))
-                     [:crux.tx/put db-fn]
-                     :else
-                     [:crux.tx/cas
-                      (second params)
-                      db-fn])]
+      (let [tx (if function
+                 [:crux.tx/put db-fn]
+                 [:crux.tx/cas function db-fn])]
         (crux/await-tx app-db
                        (crux/submit-tx app-db [tx])
                        #time/duration "PT30S"))
-      success
+      params
       (catch Exception e
         {:status :failure
          :message :db-failed-to-update
          :details (.getMessage e)}))))
 
 (defn get-dependencies
-  "Get a dependency graph for a function."
+  "Get a dependency graph for a function. (not used by app anymore)"
   [function]
   (query {:find '[d1 d2]
           :where '[(depends d1 d0)
@@ -137,7 +137,7 @@
                     (depends x d2)]]}))
 
 (defn get-all-dependencies
-  "Get the dependency graph for all functions."
+  "Get the dependency graph for all functions. not used by app anymore."
   []
   (query {:find '[d1 d2]
           :where '[[d1 :stored-function/dependencies d2]]}))
