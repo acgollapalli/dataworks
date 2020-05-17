@@ -393,6 +393,26 @@
        (map stringify-keyword ns))))
    m))
 
+(defn ns-keys
+  "Adds ns to all keys in map params"
+  [params ns]
+  (into {}
+         (map
+          (fn [[k v]]
+            [(keyword (stringify-keyword ns)
+                      (stringify-keyword k))
+             v]))
+         params))
+
+(defn set-ns
+  "Adds a namespace to keys, along with :stored-function/type and
+   :crux.db/id"
+  [params fn-type]
+  (merge
+   {:stored-function/type fn-type
+    :crux.db/id (get-entity-param (:name params) fn-type)}
+   (ns-keys params fn-type)))
+
 (defn exclude-ns-keys
   "Like dissoc but for namespaces of keys"
   [m & ns]
@@ -484,13 +504,13 @@
                 (map first
                      edges)))))
 
-(defn recursive-replace [form sym replacement]
-  (let [once-more (partial
-                   map
-                   #(recursive-replace
-                     %
-                     sym
-                     replacement))]
+(defn recursive-replace
+  "Recursive find and replace. Will replace anything with anything
+   regardless of whether it's in a list, a map, a set or any of those
+   nested one inside another. No pattern matching. Naive implementation.
+   Is probably slow."
+  [form sym replacement]
+  (let [once-more (partial map #(recursive-replace % sym replacement))]
     (cond
       (map? form) (into {} (once-more form))
       (vector? form) (into [] (once-more form))
@@ -499,7 +519,10 @@
       (= form sym) replacement
       :else form)))
 
-(defn replace-these [form & tuples]
+(defn replace-these
+  "Wrapper around recursive-replace to accept multiple find-request
+   tuples. Caveats of recursive-replace apply."
+  [form & tuples]
   (if-not (empty? tuples)
     (recur
      (apply (partial recursive-replace form)
@@ -507,17 +530,10 @@
      (drop 2 tuples))
     form))
 
-(defn print-cont [print-me]
+(defn print-cont
+  "print that doesn't return nil. useful to put in middle of data flows
+   or on transducers when you want to see intermediate data passing
+   between functions."
+  [print-me]
   (clojure.pprint/pprint print-me)
   print-me)
-
-(defn set-ns
-  [params fn-type]
-  (into {:stored-function/fn-type fn-type
-         :crux.db/id (get-entity-param (:name params) fn-type)}
-         (map
-          (fn [[k v]]
-            [(keyword (stringify-keyword fn-type)
-                      (stringify-keyword k))
-             v]))
-         params))

@@ -24,6 +24,9 @@
                 #(list partial transform (keyword %)))
           xformers)))
 
+;; the reason this macro does a recursive find and replace
+;; through the entire form, instead of just using the let* macro
+;; is because the let* macro breaks namespaced transformers.
 (defmacro transformers
   [xformers & forms]
   (reverse
