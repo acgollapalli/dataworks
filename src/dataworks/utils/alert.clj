@@ -1,12 +1,13 @@
 (ns dataworks.utils.alert
   (:require
-   [clojure.core.async :refer [go-loop close! alt! timeout]]
+   [clojure.core.async :refer [go-loop close! alt! timeout chan]]
    [crux.api :as crux]
    [dataworks.db.app-db :as db]
    [dataworks.transactors :refer [transact!]]
    [mount.core :refer [defstate]]))
 
 (defn get-alerts
+  []
   (db/query
    '{:find [id handler params]
      :where [[id :alert/timestamp]
@@ -42,8 +43,9 @@
 
 (defstate alerts
   :start
-  ;; (handle-alerts! (chan))
-  (println "alerts not-implemented")
+  (handle-alerts! (chan))
+  ;;(println "alerts not-implemented")
   :stop
-  ;; (close! alerts)
-  (println "unimplemented alerts have stopped"))
+  (close! alerts)
+  ;;(println "unimplemented alerts have stopped")
+  )

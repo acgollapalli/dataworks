@@ -20,12 +20,13 @@
                 @nodes))
 
 (defn update-graph!
-  [name]
+  [{:keys [details] :as result}]
   (app/stream!
    :kafka/dataworks.internal.functions
-   {:crux.db/id name
+   {:crux.db/id (:crux.db/id details)
     :stored-function/type :stream})
-  (add-to-graph! name))
+  (add-to-graph! (:stream/name details))
+  result)
 
 (defn evals? [function]
   (binding [*ns* stream-ns]
@@ -36,21 +37,27 @@
 (defn transducer? [function]
   (if (fn? (function '()))
     function
-    (failure (:cause :transducer-must-be-transducer))))
+    (failure :cause :transducer-must-be-transducer)))
 
 (defn evalidate-transducer
   [{:stream/keys [transducer] :as stream}]
-  (let [xform (->? transducer evals? transducer?)]
-    (if (= (:status xform) :failure)
-      xform
-      (assoc stream :eval/transducer xform))))
+  (println transducer)
+  (println stream)
+  (if transducer
+    (let [xform (->? transducer evals? transducer?)]
+      (if (= (:status xform) :failure)
+        xform
+        (assoc stream :eval/transducer (comp xform (filter some?)))))
+    stream))
 
 (defn evalidate-error-handler
   [{:stream/keys [error-handler] :as stream}]
-  (let [xform (evals? error-handler)]
+  (if error-handler
+    (let [xform (evals? error-handler)]
     (if (= (:status xform) :failure)
       xform
-      (assoc stream :eval/error-handler xform))))
+      (assoc stream :eval/error-handler xform)))
+    stream))
 
 (defn add-stream!
   "Add stream to streams."
@@ -64,7 +71,7 @@
         (swap! edges
                (comp (partial clojure.set/union subgraph)
                      (partial filter #(not= (second %) name))))
-        name)
+        (success (exclude-ns-keys stream :eval)))
       node)))
 
 (defn update-stream!
@@ -76,14 +83,17 @@
 
 (defn validate-buffer
   [{:stream/keys [buffer] :as params}]
-  (if (int? buffer)
-    buffer
-    (let [b ((first (keys buffer))
-             {:sliding-buffer sliding-buffer
-              :dropping-buffer dropping-buffer})]
+  (if buffer
+    (if (int? buffer)
+    (assoc params :eval/buffer buffer)
+    (let [b (((first (keys buffer))
+              {:sliding-buffer sliding-buffer
+               :dropping-buffer dropping-buffer})
+             (first (vals buffer)))]
       (if b
         (assoc params :eval/buffer b)
-        (failure :invalid-buffer buffer)))))
+        (failure :invalid-buffer buffer))))
+    params))
 
 (defn transducer-has-buffer?
   "To use a transducer (transducer) on a core.async channel,
@@ -109,11 +119,11 @@
   [stream]
   (->? stream
        (set-ns :stream)
-       (blank-field? :name)
+       (missing-field? :name)
        valid-name?
-       (parseable? :transducer :error-handler)
-       (function-already-exists? :stream)
-       dependencies?
+       (parseable? :transducer)
+       (parseable? :error-handler)
+       function-already-exists?
        validate-buffer
        transducer-has-buffer?
        evalidate-transducer
@@ -129,10 +139,9 @@
        (set-ns :stream)
        updating-correct-function?
        valid-name?
-       (add-current-stored-function :stream)
-       (has-parsed-params? :stream :transducer :error-handler)
-       (function-already-exists? :stream)
-       dependencies?
+       add-current-stored-function
+       (has-parsed-params? :transducer :error-handler)
+       function-already-exists?
        validate-buffer
        transducer-has-buffer?
        evalidate-transducer
@@ -174,20 +183,3 @@
 
 (defn wire-streams! []
   (apply-graph! @edges @nodes))
-
-;;(defstate stream-state
-;;  ;; Start/stop the go-loop that restarts stopped streams.
-;;  ;; This should probably return a value, but we don't use
-;;  ;; it anywhere except on startup.
-;;  :start
-;;  (do
-;;    (map start-stream! (get-stored-functions :stream))
-;;    (apply-graph! @edges @nodes))
-;;  :stop
-;;  (do
-;;    (map close!
-;;       (apply concat
-;;              (map channel-filter
-;;                   (map vals (vals @nodes)))))
-;;    (reset! nodes {})
-;;    (reset! edges [])))

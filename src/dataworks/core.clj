@@ -5,8 +5,10 @@
    [dataworks.resource :refer [creation-resource
                                update-resource
                                user-resource]]
+   [dataworks.utils.function :refer [stored-fns]]
    [mount.core :refer [defstate] :as mount]
-   [yada.yada :refer [listener as-resource]])
+   [yada.yada :refer [listener as-resource]]
+   )
   (:gen-class))
 
 (def routes
@@ -18,6 +20,8 @@
       "transactor/" (update-resource :transactor)
       "transformer" (creation-resource :transformer)
       "transformer/" (update-resource :transformer)
+      "stream" (creation-resource :stream)
+      "stream/" (update-resource :stream)
       "register" auth/register
       "login" auth/login
       "admin/user-roles/" auth/admin-user-roles}]
@@ -41,12 +45,15 @@
   [& args]
   (do
     (mount/start)
-    (print "Herro")
-    (Thread/sleep 100) ;; remove these in prod.
+    (doseq [f stored-fns]
+      (println f "started"))
+    (println)
+    (print "Hello")
+    (Thread/sleep 750) ;; remove these in prod.
     (print " .")
-    (Thread/sleep 100)
+    (Thread/sleep 750)
     (print " .")
-    (Thread/sleep 100)
+    (Thread/sleep 750)
     (print " . ")
-    (Thread/sleep 100)
+    (Thread/sleep 750)
     (println "ZA WARRUDO!!!!!")))

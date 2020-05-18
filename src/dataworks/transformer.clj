@@ -35,7 +35,7 @@
       (swap! transformer-map #(assoc % (keyword name) function))
       {:status :success
        :message :transformer-added
-       :details params})
+       :details (select-ns-keys params :transformer)})
     (->? params evalidate add-transformer!)))
 
 (defn apply-transformer! [params]
@@ -52,7 +52,6 @@
        valid-name?
        (parseable? :function)
        function-already-exists?
-       dependencies?
        evalidate
        added-to-db?
        apply-transformer!))
@@ -66,7 +65,6 @@
        (parseable? :function)
        add-current-stored-function
        (valid-update? :function)
-       dependencies?
        evalidate
        added-to-db?
        apply-transformer!))

@@ -26,3 +26,8 @@
 
 (require '[dataworks.transactors :refer [transact!]])
 (require '[dataworks.transformers :refer [transformers]])
+
+;; This is where the actual streams live.
+;; They only live here at runtime.
+;; DO NOT PUT CODE IN THIS NAMESPACE.
+;; (... beyond what's above)

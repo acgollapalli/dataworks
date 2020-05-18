@@ -56,7 +56,7 @@
              #(assoc % (keyword name) function))
       {:status :success
        :message :transactor-added
-       :details params})
+       :details (select-ns-keys params :transactor)})
     (->? params evalidate add-transactor!)))
 
 (defn apply-transactor! [params]
@@ -73,7 +73,6 @@
        valid-name?
        (parseable? :function)
        function-already-exists?
-       dependencies?
        evalidate
        added-to-db?
        apply-transactor!))
@@ -88,7 +87,6 @@
        add-current-stored-function
        (has-params? :name)
        (valid-update? :function)
-       dependencies?
        evalidate
        added-to-db?
        apply-transactor!))

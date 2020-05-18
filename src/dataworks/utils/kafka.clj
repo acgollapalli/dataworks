@@ -23,7 +23,8 @@
   "Create the consumer instance to consume
   from the provided kafka topic name"
   ([{:keys [topic name format settings]}]
-    (let [deserializers {:edn EdnDeserializer
+   (let [format (if format format :edn)
+         deserializers {:edn EdnDeserializer
                         :json JsonDeserializer}
          consumer-props
          (merge

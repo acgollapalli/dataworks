@@ -19,56 +19,57 @@
     (if-not forms
       x
       (let [next-form (first forms)
-            status? `(fn ~'[{:keys [status] :as params}]
-                       (if (= ~'status :failure)
+            status? `(fn ~'[params]
+                       (let ~'[status (:status params)]
+                         (if (= ~'status :failure)
                          ~'params
-                         (-> ~'params ~next-form)))]
+                         (-> ~'params ~next-form))))]
         (recur (list status? x) (next forms))))))
 
-(defn recursive-filter
-  "recursively filters through nested sequences, applying the
-   test 'test' to each sequence and if a function 'f' is
-   specified, applyed to that sequence, returning the result of
-   f as though you had done (map f (filter test s))."
-  ([test f s]
-   (if (coll? s)
-     (if (test s)
-       (concat '()
-               (f s)
-               (apply concat
-                      (map (partial recursive-filter test f)
-                           s)))
-       (apply concat
-              (map (partial recursive-filter test f)
-                   s)))
-     '()))
-  ([test s]
-   (recursive-filter test #(conj '() %) s)))
-
-(defn get-names
-  "searches through a seq 's' for sequences starting with a
-   symbol 'sym' then gets the second value of the sequence.
-   (in the name of )
-   returns results as a list.
-
-   input: (get-defs 'defn
-                    '(defn a
-                       [x]
-                       (defn b
-                         [y]
-                         (inc y))
-                       (b a)))
-
-  output: '(a b)
-
-  Why would you want this? Mainly in the case of nested
-  transformer blocks to get all the stored functions a stored
-  function depends upon."
-  [sym s]
-  (recursive-filter
-   #(= (first %) sym) ;; the test function
-   second ;; the function applied to a tested sequenct
-   s)) ;; the sequence itself
+;;(defn recursive-filter
+;;  "recursively filters through nested sequences, applying the
+;;   test 'test' to each sequence and if a function 'f' is
+;;   specified, applyed to that sequence, returning the result of
+;;   f as though you had done (map f (filter test s))."
+;;  ([test f s]
+;;   (if (coll? s)
+;;     (if (test s)
+;;       (concat '()
+;;               (f s)
+;;               (apply concat
+;;                      (map (partial recursive-filter test f)
+;;                           s)))
+;;       (apply concat
+;;              (map (partial recursive-filter test f)
+;;                   s)))
+;;     '()))
+;;  ([test s]
+;;   (recursive-filter test #(conj '() %) s)))
+;;
+;;(defn get-names
+;;  "searches through a seq 's' for sequences starting with a
+;;   symbol 'sym' then gets the second value of the sequence.
+;;   (in the name of )
+;;   returns results as a list.
+;;
+;;   input: (get-defs 'defn
+;;                    '(defn a
+;;                       [x]
+;;                       (defn b
+;;                         [y]
+;;                         (inc y))
+;;                       (b a)))
+;;
+;;  output: '(a b)
+;;
+;;  Why would you want this? Mainly in the case of nested
+;;  transformer blocks to get all the stored functions a stored
+;;  function depends upon."
+;;  [sym s]
+;;  (recursive-filter
+;;   #(= (first %) sym) ;; the test function
+;;   second ;; the function applied to a tested sequenct
+;;   s)) ;; the sequence itself
 
 (defmacro ->let
   "Input:
@@ -252,21 +253,23 @@
   "Ensures that name can be converted to keyword.
    Returns name as keyword."
   [{:stored-function/keys [type] :as params}]
-  (println "validating name" name)
+  (println "validating name" (get params (get-entity-param :name type)))
   (let [name ((get-entity-param :name type) params)]
-    (cond (not (string? name))
-          {:status :failure
-           :message :name-must-be-string}
-          (string/includes? name ":")
-          {:status :failure
-           :message :name-cannot-include-colon}
-          (string/starts-with? name "/")
-          {:status :failure
-           :message :name-cannot-start-with-slash}
-          (string/includes? name " ")
-          {:status :failure
-           :message :name-cannot-include-whitespace}
-          :else (assoc (get-entity-param :name type) (keyword name)))))
+    (cond
+      (keyword? name) params
+      (not (string? name))
+      {:status :failure
+       :message :name-must-be-string}
+      (string/includes? name ":")
+      {:status :failure
+       :message :name-cannot-include-colon}
+      (string/starts-with? name "/")
+      {:status :failure
+       :message :name-cannot-start-with-slash}
+      (string/includes? name " ")
+      {:status :failure
+       :message :name-cannot-include-whitespace}
+      :else (assoc params (get-entity-param :name type) (keyword name)))))
 
 (defn parseable?
   "Checks whether a string is parseable to edn.
@@ -274,7 +277,7 @@
   [{:stored-function/keys [type] :crux.db/keys [id] :as params} key]
   (println "Checking" key "parseability: " id)
   (if-let [value (get params (get-entity-param key type))]
-    (try (assoc params key (read-string value))
+    (try (assoc params (get-entity-param key type) (read-string value))
          (catch Exception e
            {:status :failure
             :message (generate-message
@@ -289,16 +292,18 @@
         name (get params key)]
     (println "Checking for correct function: " path-name "," name)
     (if name
-      (if (= name path-name)
+      (if (= name (keyword path-name))
         params
         {:status :failure
          :message :name-param-does-not-match-path
          :details
-         (str "We don't let you rename stored functions.\n"
-              "If it's changed enough to be renamed, "
-              "it's a different function at that point\n"
-              "Best thing is to retire the old function "
-              "and create a new one.")})
+         {:name-in-path (keyword path-name)
+          :name-in-params name
+          :msg (str "We don't let you rename stored functions.\n"
+                    "If it's changed enough to be renamed, "
+                    "it's a different function at that point\n"
+                    "Best thing is to retire the old function "
+                    "and create a new one.")}})
       (assoc params key path-name))))
 
 (defn has-params?
@@ -309,23 +314,18 @@
   (let [function-type (:stored-function/type params)
         current-function (:current/function params)]
     (loop [params? params?
-         input [params current-function]]
+           input params]
 
-    (if (and params?
-             (not= (:status input) :failure))
-      (recur (next params?)
-             (let [param (first params?)]
-               (println "Checking for" param)
-               (if-not (get params param)
-                 [(assoc params
-                         param
-                         ((keyword
-                           (stringify-keyword function-type)
-                           param)
-                          current-function))
-                  current-function]
-                 [params current-function])))
-      input))))
+      (if (and params?
+               (not= (:status input) :failure))
+        (recur (next params?)
+               (let [param (first params?)
+                     key (get-entity-param param function-type)]
+                 (println "Checking for" param)
+                 (if-not (get params param)
+                   (assoc input key (key current-function))
+                   input)))
+        input))))
 
 (defn has-parsed-params?
   "Checks for presence of params that are meant to be parsed
@@ -337,22 +337,16 @@
         current-function (:current/function params)]
     (loop [params? params?
            input params]
+      (println "input: " input)
       (if (and params?
                (not= (:status input) :failure))
         (recur (next params?)
-               (let [param (get-entity-param (first params?)
-                                             function-type)]
+               (let [param (first params?)
+                     key (get-entity-param param function-type)]
                  (println "Checking for" param)
-                 (if-not (get params param)
-                   (assoc params
-                          param
-                          ((get-entity-param param function-type)
-                            current-function))
-                   (let [parsed (parseable? params param)
-                         not-parsed (:status parsed)]
-                     (if (= not-parsed :failure)
-                       not-parsed
-                       parsed)))))
+                 (if-not (get params key)
+                   (assoc params key (key current-function))
+                   (parseable? input param))))
         input))))
 
 (defn valid-update?
@@ -397,12 +391,12 @@
   "Adds ns to all keys in map params"
   [params ns]
   (into {}
-         (map
-          (fn [[k v]]
-            [(keyword (stringify-keyword ns)
-                      (stringify-keyword k))
-             v]))
-         params))
+        (map
+         (fn [[k v]]
+           [(keyword (stringify-keyword ns)
+                     (stringify-keyword k))
+            v]))
+        params))
 
 (defn set-ns
   "Adds a namespace to keys, along with :stored-function/type and
@@ -426,83 +420,83 @@
    m))
 
 
-(defn dependencies?
-  "I don't think we actually use this anymore. But it's probably
-   still nice to have the data for debugging purposes."
-  [params]
-  (let [function-type (:stored-function/type params)
-        dependencies
-        (into #{}
-              cat
-              ((juxt
-                (comp
-                 (partial map
-                          #(get-entity-param
-                            (keyword %)
-                            :transformer))
-                 (partial get-names 'transformers))
-                (partial recursive-filter
-                         #(= (first %) 'transact!)
-                         #(conj '()
-                                (get-entity-param
-                                 (second %)
-                                 :transactor)))
-                (partial recursive-filter
-                         #(= (first %) 'stream!)
-                         #(conj '()
-                                (second %))))
-               ((get-entity-param :function function-type)
-                params)))]
-    (if-not (empty? dependencies)
-      (assoc params
-             :stored-function/dependencies
-             dependencies)
-      params)))
-
-
-(defn paths
-  "returns all paths from start to end along the graph
-   specified via edges. (not used by the app anymore)"
-  ([edges start end]
-   (recursive-filter #(keyword? (first %))
-                     (paths edges start end (list start))))
-  ([edges start end l]
-   (let [deps (filter #(= (first l)
-                          (last %))
-                      edges)
-         set-deps (into #{}
-                        (map first deps))]
-     (if (some some? (map set-deps l))
-       (throw (Exception. (str "circular dependency: "
-                               (conj l
-                                     (some identity
-                                           (map set-deps
-                                                l)))))))
-     (if-not (= (first l) end)
-       (map (partial paths edges start end)
-            (map #(conj l %)
-                 (map first
-                      deps)))
-       l))))
-
-(defn order-nodes
-  "returns the list of nodes in order of longest
-   distance to the root node, along the graph
-   specified via edges.
-   This is useful for figuring out the order in which
-   to recompile functions depending on the root function
-   in which the dependency relations are specified in edges.
-   (not used by the app anymore)"
-  [root edges]
-   (map second
-       (sort-by first
-           (map (juxt
-                 (comp (partial apply max)
-                       (partial map count)
-                       (partial paths edges root))
-                 identity)
-                (map first
-                     edges)))))
+;;(defn dependencies?
+;;  "I don't think we actually use this anymore. But it's probably
+;;   still nice to have the data for debugging purposes."
+;;  [params]
+;;  (let [function-type (:stored-function/type params)
+;;        dependencies
+;;        (into #{}
+;;              cat
+;;              ((juxt
+;;                (comp
+;;                 (partial map
+;;                          #(get-entity-param
+;;                            (keyword %)
+;;                            :transformer))
+;;                 (partial get-names 'transformers))
+;;                (partial recursive-filter
+;;                         #(= (first %) 'transact!)
+;;                         #(conj '()
+;;                                (get-entity-param
+;;                                 (second %)
+;;                                 :transactor)))
+;;                (partial recursive-filter
+;;                         #(= (first %) 'stream!)
+;;                         #(conj '()
+;;                                (second %))))
+;;               ((get-entity-param :function function-type)
+;;                params)))]
+;;    (if-not (empty? dependencies)
+;;      (assoc params
+;;             :stored-function/dependencies
+;;             dependencies)
+;;      params)))
+;;
+;;
+;;(defn paths
+;;  "returns all paths from start to end along the graph
+;;   specified via edges. (not used by the app anymore)"
+;;  ([edges start end]
+;;   (recursive-filter #(keyword? (first %))
+;;                     (paths edges start end (list start))))
+;;  ([edges start end l]
+;;   (let [deps (filter #(= (first l)
+;;                          (last %))
+;;                      edges)
+;;         set-deps (into #{}
+;;                        (map first deps))]
+;;     (if (some some? (map set-deps l))
+;;       (throw (Exception. (str "circular dependency: "
+;;                               (conj l
+;;                                     (some identity
+;;                                           (map set-deps
+;;                                                l)))))))
+;;     (if-not (= (first l) end)
+;;       (map (partial paths edges start end)
+;;            (map #(conj l %)
+;;                 (map first
+;;                      deps)))
+;;       l))))
+;;
+;;(defn order-nodes
+;;  "returns the list of nodes in order of longest
+;;   distance to the root node, along the graph
+;;   specified via edges.
+;;   This is useful for figuring out the order in which
+;;   to recompile functions depending on the root function
+;;   in which the dependency relations are specified in edges.
+;;   (not used by the app anymore)"
+;;  [root edges]
+;;  (map second
+;;       (sort-by first
+;;                (map (juxt
+;;                      (comp (partial apply max)
+;;                            (partial map count)
+;;                            (partial paths edges root))
+;;                      identity)
+;;                     (map first
+;;                          edges)))))
 
 (defn recursive-replace
   "Recursive find and replace. Will replace anything with anything

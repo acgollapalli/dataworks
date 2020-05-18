@@ -8,7 +8,7 @@
    ... arguably the easiest way is to just eval the whole buffer")
 
 
-(def url (atom "http://localhost:3000/")) ;; configure me!
+(def url (atom "http://localhost:3001/")) ;; configure me!
 
 (require '[dataworks.utils.common :refer :all]
          '[clj-http.client :as client]
@@ -31,7 +31,7 @@
     (fn [m]
       (assoc m
              name
-             {:name (stringify-keyword name)
+             {:name name
               :function (pr-str (concat ['fn args] form))})))))
 
 (defmacro def-collector
@@ -41,7 +41,8 @@
     (fn [m]
       (assoc m
              name
-             {:name (stringify-keyword name)
+             {:name name
+              :path path
               :resource (pr-str (concat [] form))})))))
 
 (defmacro def-transactor
@@ -51,9 +52,28 @@
     (fn [m]
       (assoc m
              name
-             {:name (stringify-keyword name)
+             {:name name
               :function (pr-str (concat ['fn args] form))})))))
 
+(defn stream-helper
+  ([args]
+   (if (keyword? args)
+     (recur {:name args})
+     (swap! streams (fn [m] (assoc m (:name args) args))))))
+
+(defmacro def-stream
+  ([args]
+   (stream-helper args))
+  ([name {:keys [buffer transducer error-handler] :as params}]
+   (let [if-quote (fn [params key value]
+                    (if value
+                      (assoc params key (pr-str value))
+                      params))]
+     (-> params
+         (assoc :name name)
+         (if-quote :transducer transducer)
+         (if-quote :error-handler error-handler)
+         stream-helper))))
 
 (defn exists?
   ([fn-type {:keys [name]}]
@@ -61,25 +81,28 @@
         (str
          @url "app/"
          (stringify-keyword fn-type) "/"
-         name))
-       (catch Exception e (println e)))))
+         (stringify-keyword name)))
+       (catch Exception _ nil))))
 
 (defn update-fn
   [fn-type f]
+  (println "updating:" f)
   (client/post
    (str @url "app/"
         (stringify-keyword fn-type) "/"
-        (:name f))
+        (stringify-keyword (:name f)))
    {:form-params f
-    :content-type :json}))
+    :content-type :edn}))
 
 (defn create-fn
   [fn-type f]
+  (println "creating:" f)
   (client/post
    (str @url "app/"
         (stringify-keyword fn-type))
    {:form-params f
-    :content-type :json}))
+    :content-type :edn
+    :as :edn}))
 
 (defn send-fn
   ([f]

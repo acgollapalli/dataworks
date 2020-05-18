@@ -12,6 +12,7 @@
    [dataworks.utils.time :refer [consume-time]]
    [dataworks.transactors :refer [transact!]]
    [dataworks.transformers :refer [transformers]]
+   [dataworks.streams :refer [stream!]]
    [crux.api :as crux]
    [mount.core :refer [defstate] :as mount]
    [tick.alpha.api :as tick]
@@ -32,3 +33,4 @@
 ;; This is where the actual collectors live.
 ;; They only live here at runtime.
 ;; DO NOT PUT CODE IN THIS NAMESPACE.
+;; (... beyond what's above)

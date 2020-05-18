@@ -73,6 +73,7 @@
   [{:collector/keys [name resource] :as collector}]
   (binding [*ns* collector-ns]
     (println "Evalidating:" name)
+    (clojure.pprint/pprint (eval resource))
     (try (assoc collector
                 :eval/resource
                 (yada/resource (eval resource)))
@@ -92,7 +93,7 @@
                              (assoc old-map path name)))
       {:status :success
        :message :collector-added
-       :details collector})
+       :details (select-ns-keys collector :collector)})
      (->? collector
           evalidate
           add-collector!))))
@@ -116,29 +117,28 @@
 (defn create-collector! [collector]
   (->? collector
        (set-ns :collector)
-       (blank-field? :name :path :resource)
+       (missing-field? :name)
+       (blank-field? :path :resource)
        valid-path?
        valid-name?
        (parseable? :resource)
        function-already-exists?
        other-collector-with-path?
-       dependencies?
        evalidate
        added-to-db?
        apply-collector!))
 
 (defn update-collector! [name params]
-  (println params)
   (->? params
        (set-ns :collector)
        (updating-correct-function? name)
        valid-name?
        add-current-stored-function
        (has-params? :path)
+       valid-path?
        (has-parsed-params? :resource)
        (valid-update? :path :resource)
        valid-path?
-       dependencies?
        evalidate
        added-to-db?
        apply-collector!))

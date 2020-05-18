@@ -79,8 +79,7 @@
   (println "checking for duplicate" id)
   (if (get-stored-function id)
     {:status :failure
-     :message (generate-message type
-                                "%-already-exists")}
+     :message (generate-message type "%-already-exists")}
     params))
 
 (defn add-current-stored-function
@@ -90,17 +89,12 @@
    current stored function. Useful for threading through
    functions which require both the new stored function
    and the current stored function for comparison."
-  [{:keys [name] :as params} function-type]
-  (println "Adding current" function-type ":" name ".")
-  (if-let [current (get-stored-function
-                    name function-type)]
-    (assoc params
-           :current/function
-           (get-stored-function name function-type))
+  [{:crux.db/keys [id] :as params}]
+  (if-let [current (get-stored-function id)]
+    (assoc params :current/function current)
     {:status :failure
      :message :stored-function-does-not-exist
-     :details (str "The " (stringify-keyword function-type)
-                   ": " name " doesn't exist yet. "
+     :details (str id " doesn't exist yet. "
                    "You have to create it before you "
                    "can update it.")}))
 
@@ -109,7 +103,7 @@
     :stored-function/keys [type]
     :as params}]
   (println "adding-to-db")
-  (let [db-fn (select-ns-keys params type :stored-function)]
+  (let [db-fn (select-ns-keys params type :stored-function :crux.db)]
     (try
       (let [tx (if function
                  [:crux.tx/put db-fn]
@@ -123,21 +117,21 @@
          :message :db-failed-to-update
          :details (.getMessage e)}))))
 
-(defn get-dependencies
-  "Get a dependency graph for a function. (not used by app anymore)"
-  [function]
-  (query {:find '[d1 d2]
-          :where '[(depends d1 d0)
-                   [d1 :stored-function/dependencies d2]]
-          :args [{'d0 function}]
-          :rules '[[(depends d1 d2)
-                    [d1 :stored-function/dependencies d2]]
-                   [(depends d1 d2)
-                    [d1 :stored-function/dependencies x]
-                    (depends x d2)]]}))
-
-(defn get-all-dependencies
-  "Get the dependency graph for all functions. not used by app anymore."
-  []
-  (query {:find '[d1 d2]
-          :where '[[d1 :stored-function/dependencies d2]]}))
+;;(defn get-dependencies
+;;  "Get a dependency graph for a function. (not used by app anymore)"
+;;  [function]
+;;  (query {:find '[d1 d2]
+;;          :where '[(depends d1 d0)
+;;                   [d1 :stored-function/dependencies d2]]
+;;          :args [{'d0 function}]
+;;          :rules '[[(depends d1 d2)
+;;                    [d1 :stored-function/dependencies d2]]
+;;                   [(depends d1 d2)
+;;                    [d1 :stored-function/dependencies x]
+;;                    (depends x d2)]]}))
+;;
+;;(defn get-all-dependencies
+;;  "Get the dependency graph for all functions. not used by app anymore."
+;;  []
+;;  (query {:find '[d1 d2]
+;;          :where '[[d1 :stored-function/dependencies d2]]}))

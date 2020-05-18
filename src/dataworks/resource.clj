@@ -43,41 +43,47 @@
 ;;    :authentication auth/dev-authentication
 ;;    :authorization auth/dev-authorization
     :methods {:get
-              {:produces "application/json"
+              {:produces "application/edn"
                :response (fn [ctx]
                            (get-stored-functions
                             function-type))}
               :post
-              {:consumes #{"application/json"}
-               :produces "application/json"
+              {:consumes #{"application/edn"}
+               :produces "application/edn"
                :response
                (fn [ctx]
                  (let [body (:body ctx)]
-                   (create! function-type body)))}}}))
+                   (if-failure-response
+                     ctx
+                     (create! function-type body)
+                     406)))}}}))
 
 (defn update-resource [function-type]
   (resource
    {:id (get-entity-param function-type "update")
     :description (str "resource for existing individual "
                       (stringify-keyword function-type) "s")
-;;    :authentication auth/dev-authentication ;; TODO hierarchical
-;;    :authorization auth/dev-authorization   ;;      role auth
+;;    :authentication auth/dev-authentication ;; TODO add hierarchical
+;;    :authorization auth/dev-authorization   ;;      role authorization
     :path-info? true
     :methods {:get
-              {:produces "application/json"
+              {:produces "application/edn"
                :response
                (fn [ctx]
                  (let [name (get-in ctx [:request :path-info])]
                    (get-stored-function name function-type)))}
               :post
-              {:consumes #{"application/json"}
-               :produces "application/json"
+              {:consumes #{"application/edn"}
+               :produces "application/edn"
                :response
                (fn [ctx]
                  (let [name (get-in ctx [:request :path-info])
                        body (:body ctx)]
                    (println "updating!")
-                   (update! function-type name body)))}}}))
+                   (if-failure-response
+                     ctx
+                     (update! function-type name body)
+                     406)))}}}))
 
 (def user-sub
   (fn [ctx]
