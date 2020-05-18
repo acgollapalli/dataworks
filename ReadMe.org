@@ -32,7 +32,7 @@ Let's say you want to change it:
 (send-fn :collector/hello)
 #+END_SRC
 
-Try and get that same enpoint after having made the changes, it should return the new value!
+Try and get that same ednpoint after having made the changes, it should return the new value!
 
 Let's say we want to do some stream processing. That's easy too.
 Let's take from a kafka topic, conveniently called "input ", increase the value, and then  send it to another topic, conveniently called "output":
@@ -54,19 +54,12 @@ Let's take from a kafka topic, conveniently called "input ", increase the value,
 
 Want your process to decrement instead of increment?
 #+BEGIN_SRC clojure
-(def-stream :kafka/input)
-(send-fn :stream/kafka/input)
-
 (def-stream :stream/process
   {:buffer 5
    :transducer (comp (map :value)
                      (map dec))
    :upstream #{:kafka/input}})
 (send-fn :stream/stream/process)
-
-(def-stream :kafka/output
-  {:upstream #{:stream/process}})
-(send-fn :stream/kafka/output)
 #+END_SRC
 
 Now let's say you want to add another node. All you have to do is point it at a running kafka broker in your config.edn and your database, stream-processors, api endpoints will automagically stay in sync.
