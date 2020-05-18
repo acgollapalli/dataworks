@@ -144,4 +144,5 @@ Given the nature of our database and how stored-functions work, it should be pos
 
 *** 1.0 all of the above, load-tested and optimized
 
+* Finally
 We built this software to meet our own B2B integration and automation needs. If that's something you need, and would like our help with, you should contact our consulting company [[acgollapalli@jnasquare.com][JNA Square]].
