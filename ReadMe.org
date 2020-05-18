@@ -2,6 +2,77 @@
 
 ** Introduction
 Dataworks is a distributed stored function engine with REST API and stream processing capabilities built on top of a bitemporal, graph-query enabled document-store.
+** Some Examples
+Using the utils in the dataworks.dev.utils namespace, we can define a new endpoint on a running dataworks cluster
+#+BEGIN_SRC clojure
+(def-collector :hello-world
+  "hello-world"
+  {:id :hello
+   :methods {:get {:produces #{text/plain}
+                   :response (fn [ctx]
+                               "Hello world!")}}})
+(send-fn :collector/hello)
+#+END_SRC
+
+Now your endpoint is available at <your-app-url>/user/hello-world. Try it at the command line:
+#+BEGIN_SRC shell
+curl localhost:3000/user/hello-world
+#+END_SRC
+
+And when you're running it on a cluster, that endpoint will be on all of them.
+
+Let's say you want to change it:
+#+BEGIN_SRC clojure
+(def-collector :hello-world
+  "hello-world"
+  {:id :hello
+   :methods {:get {:produces #{text/plain}
+                   :response (fn [ctx]
+                               "Good-by cruel world!")}}})
+(send-fn :collector/hello)
+#+END_SRC
+
+Try and get that same enpoint after having made the changes, it should return the new value!
+
+Let's say we want to do some stream processing. That's easy too.
+Let's take from a kafka topic, conveniently called "input ", increase the value, and then  send it to another topic, conveniently called "output":
+#+BEGIN_SRC clojure
+(def-stream :kafka/input)
+(send-fn :stream/kafka/input)
+
+(def-stream :stream/process
+  {:buffer 5
+   :transducer (comp (map :value)
+                     (map inc))
+   :upstream #{:kafka/input}})
+(send-fn :stream/stream/process)
+
+(def-stream :kafka/output
+  {:upstream #{:stream/process}})
+(send-fn :stream/kafka/output)
+#+END_SRC
+
+Want your process to decrement instead of increment?
+#+BEGIN_SRC clojure
+(def-stream :kafka/input)
+(send-fn :stream/kafka/input)
+
+(def-stream :stream/process
+  {:buffer 5
+   :transducer (comp (map :value)
+                     (map dec))
+   :upstream #{:kafka/input}})
+(send-fn :stream/stream/process)
+
+(def-stream :kafka/output
+  {:upstream #{:stream/process}})
+(send-fn :stream/kafka/output)
+#+END_SRC
+
+Now let's say you want to add another node. All you have to do is point it at a running kafka broker in your config.edn and your database, stream-processors, api endpoints will automagically stay in sync.
+
+Easy as pi!
+
 ** Technical Case
 *** What does it do? And what is it good for?
 1) Dataworks is an easy and powerful way to build and deploy REST API's

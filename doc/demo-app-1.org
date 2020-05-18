@@ -1,7 +1,8 @@
 #+TITLE: Demo App 1
-
 * Introduction
 Hi this is the Demo App. It's also the documentation.
+
+Heads up this is the 0.4 version of the demo-app. 0.5 will be up shortly
 
 Today we're building a generic monitoring application that will let you:
 1. Collect logs from an arbitrary number of apps via REST API,
@@ -27,8 +28,8 @@ Now, due to the requirements of programmers writing things that are actually use
 There are 4 types of Stored Functions in Dataworks:
 1. The Collector
 2. The Transactor
-3. The Internal
-4. The Transformer
+3. The Transformer
+4. The Stream
 
 Of the four of them, only the Transformer is actually a pure function, and even then, that's only if you don't try to make it an impure function by calling a transactor or something.
 
@@ -319,140 +320,6 @@ Well, isn't that simple! You call it using the transact! function which is avail
 #+END_SRC
 
 Pretty nifty, right? You can do it as many times as you want, and it all happens asyncronously, so it won't block the rest of your function.
-
-* The Internal
-The Internal does something on a timer, or whenever it thinks is necessary. It's sort of like a scheduled task that can reschedule itself when it likes.
-
-Our internal function:
-  What it assumes: That our apps will either:
-    a) that running our internal every minute gives us   sufficient fidelity to effectively monitor our apps
-    b) that our collector that we built earlier will set up alerts for our internal to pick up
-    TODO explain that db entries in crux don't actually exist until after their valid time, which is why alerts work.
-  What it does:
-    a) filter through the alerts that are currently valid
-    b) filter for the ones it's seen previously (from the result returned previously) and send us a text about them.
-    c) filter for the ones it hasn't seen previously and return them so that the next iteration can check on them again.
-
-This lives in the internals namespace, for which the following are provided:
-
-#+BEGIN_SRC clojure
-(ns dataworks.internals
-  (:require
-   [dataworks.db.user-db :refer [user-db
-                                 submit-tx
-                                 query
-                                 entity]]
-   [dataworks.utils.common :refer :all]
-   [cheshire.core :as cheshire]
-   [crux.api :as crux]
-   [dataworks.transactor :refer [transact!]]
-   [dataworks.transformer :refer [transformers]]
-   [dataworks.stream-utils :refer [produce!
-                                   consumer-instance
-                                   consume!]]
-   [tick.alpha.api :as tick]))
-#+END_SRC
-
-For convenience, user-db is aliased as db in this namespace.
-
-Our Internal Query to find Apps that need to be monitored:
-#+BEGIN_SRC clojure
-(crux/q
- (crux/db db)
- '{:find [app timestamp status next-event]
-   :where [[e :app/name app]
-           [e :log/event status]
-           [e :alert/next-event next-event]
-           [e :app/alert alert]
-           [alert :alert/timestamp timestamp]]})
-#+END_SRC
-
-Shorthand version:
-#+BEGIN_SRC clojure
-(query
- '{:find [app timestamp status next-event]
-   :where [[e :app/name app]
-           [e :log/event status]
-           [e :alert/next-event next-event]
-           [e :app/alert alert]
-           [alert :alert/timestamp timestamp]]})
-#+END_SRC
-
-name: "demo-app"
-Yes, we're naming it the same as the collector. It's actual name is :internal/demo-app because everything is namespaced, so this is fine.
-
-initial-value:
-#+BEGIN_SRC clojure
-{:events-checked-once {}}
-#+END_SRC
-
-function:
-#+BEGIN_SRC clojure
-(->let
- (def now
-   (tick/now))
-
- (def events-to-check   ;;remember this will be transformed
-   (query               ;; via ->let and only exists within
-    '{:find [app        ;; the scope of the ->let block
-             timestamp
-             status
-             next-event]
-      :where [[e :app/name app]
-              [e :log/event status]
-              [e :alert/next-event next-event]
-              [e :app/alert alert]
-              [alert :alert/timestamp timestamp]]}))
-
- (defn waiting-since
-   [t]
-   (tick/minutes
-    (tick/between t now)))
-
- (defn waiting-too-long?
-   "If this seems weird to you, we're just writing a function that creates a function. We don't have the events-checked-once value until the final function, which why we're doing it this way."
-   [events-checked-once]
-   (fn [[app timestamp status next-event]]
-     (if-let [previous-timestamp (get events-checked-once app)]
-       (= timestamp previous-timestamp))))
-
- (defn check-in-a-minute
-   [event-map [app timestamp status next-event]]
-   (assoc event-map app timestamp))
-
- (defn text-the-dev
-   [[app timestamp status next-event]]
-   (transact! :text
-              (str app " has not checked in.\n\n"
-                   "Expected information "
-                   (waiting-since next-event)
-                   " minutes ago.\n"
-                   "Have not heard from " app
-                   " for " (waiting-since timestamp) "minutes.")))
-
- (fn [{:keys [events-checked-once]}]
-   (if-not (empty? events-to-check)
-     (do
-       (doseq
-        [alert (filter
-                (waiting-too-long?
-                 events-checked-once)
-                events-to-check)]
-         (text-the-dev alert))
-       (println (filter (complement
-                         (waiting-too-long?
-                          events-checked-once))
-                        events-to-check))
-       {:events-checked-once
-        (reduce check-in-a-minute {}
-                (filter (complement
-                         (waiting-too-long?
-                          events-checked-once))
-                        events-to-check))
-        :next-run (tick/new-duration 1 :minutes)})
-     {:events-checked-once {}
-      :next-run (tick/new-duration 1 :minutes)})))
-#+END_SRC
 
 * The Transformer
 +So far I haven't written the code for Transformers yet so... Transformers TODO in disguise!!!+
