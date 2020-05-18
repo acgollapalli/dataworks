@@ -103,7 +103,7 @@ Dataworks... doesn't really follow that model. As we all know, "code is data", s
 4) You can't just `lein uberjar` your build. You have to send your code to dataworks via REST API.
    This is also, debateably, an advantage, and we did it because we believe that it is one.
 
-*** Caveat Cloner
+*** Caveat Hacker
 This release (0.5) is a naive release. If premature optimization is the root of all evil, then we shall be good's greatest friend, as in these paren-wrapped files there is no optimization in danger of being premature. All implementation of functionality is thoroughly naive, and sometimes downright crude. As we have done our best to choose good bits of code and get out of their way, I would not be surprised if you got good performance right out of the gate. But I would be even more unsurprised if you didn't, and it were entirely my fault. So don't use it in critical production applications yet. And if you do choose to use it in a critical production application, do read the source code and judge it for yourself. If you believe in test driven development, then I should warn you that there are no tests. Writing tests, writing optimizations, and capturing edge-cases/corner-cases are all things that will come as we proceed to 1.0. This code is at version 0.5 for a reason: it is only halfway to where it needs to be.
 ** Business Case
 For many years the way of managing the business logic of enterprise systems was by using stored procedures in a SQL database (at the behest of DBA's primarily). For many businesses, the SQL database is the single most important part of their entire operation, the coordinating capstone, without which the enterprise would not be able to function. The management of business logic within the SQL database itself allowed for the management of access to the database, as well as optimization and management by database administrators in order to preserve the integrity and availability of the SQL database, and thus the information heart of the enterprise.
@@ -115,10 +115,11 @@ With the advent of microservices and cloud architectures, the codebases became e
 Dataworks solves the issues of the monolithic and microservice architectures while largely preserving the advantages of both. It does so by a return to the old "stored procedure" way of doing things, but using an extremely powerful, enterprise tested language called clojure for writing and implementing business logic. The language is extremely productive and programmer friendly, and has been used successfully by numerous businesses across a wide variety of use-cases. In addition, since programs are written at the level of a function, they are easy to manage and write on the level of their individual functionality, preserving the ease of develpment of the microservices architecture, but because they are centralized within a single system, the business logic is easy to manage and optimize for management and development operations. Because Dataworks is distributed by default, and horizontally scalable with little-to-no configuration, the scalability advantage of microservices is also preserved, So far as security is concerned, because only a single application contains all the business logic, the ability to manage the attack surface is increased, and thus the overall attack surface can be reduced. The distributed nature of Dataworks makes it highly fault tolerant, and thus suitable for critical business applications. The stream processing and REST API capabilities make it suitable for modern businesses with a high capacity for integration and for business process automation, which is the true purpose of Dataworks.
 
 ** Installation
-To run a Dataworks node, point your config.edn to a running kafka broker (see example-config.edn) and then run:
+To run a Dataworks node, compile an uberjar, then point your config.edn to a running kafka broker (see example-config.edn) and then run:
 
 #+BEGIN_SRC bash
-java -jar dataworks-0.1.0-standalone.jar
+lein uberjar
+java -jar dataworks-0.5.0-standalone.jar
 #+END_SRC
 
 We recommend running it behind NginX in production, with a reverse proxy configuration.
