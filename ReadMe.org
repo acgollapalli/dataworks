@@ -68,13 +68,13 @@ Easy as pi!
 
 ** Technical Case
 *** What does it do? And what is it good for?
-1) Dataworks is an easy and powerful way to build and deploy REST API's
+1) Dataworks is an easy and powerful way to build and deploy REST API's (and by extension, CRUD apps)
 2) Dataworks is an easy and powerful way to build and deploy stream processors
 3) Dataworks stores your code in a database, and synchronizes with your code/database as it changes. The code is evaluated at runtime, and on change. This includes API endpoints and routing. Changes are propagated to all instances automatically.
 *** There are plenty of other easy and powerful ways to do those things. What makes this different?
 1) Normally, when you modify a REST API, unless each endpoint is it's own process, you have to redeploy the entire API or service. With Dataworks you can hot swap endpoints in a running application, without effecting any other endpoints on your service. You can add new functionality, without effecting any of the old functionality. It takes much of the complexity of continuous deployment out of the equation. When you modify, add, or delete code on one instance, the changes propagate to all the nodes. Which means deployment is essentially only ever done on upgrades of dataworks itself, and the rest is just updating data in a business application.
 2) You can use transducers on kafka topics as though they were clojure.core.async channels. If you're a clojurian, then you probably already have a feeling of how powerful that is. If not, then just think about it as being able to do stream processing with a very powerful programming language and next-to-no configuration.
-3) Your db, stream processing, and web api are seamlessly integrated, and are themselves just clojure functions.
+3) Your db, stream processing, and web api are seamlessly integrated, and are themselves just clojure functions. Dataworks ships with [[https://opencrux.com/][openCRUX]] for it's database, meaning that your dataworks node is also a node of your database, and your database is always close at hand. It's also fairly easy to use some other database if you like. 
 4) Configuration is as simple as pointing your dataworks instance to a kafka broker.
 *** For clojure hackers
 If you're a clojure hacker, then you're familiar with the existing way of creating and running clojure programs:
