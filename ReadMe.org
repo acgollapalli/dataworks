@@ -62,6 +62,8 @@ Want your process to decrement instead of increment?
 (send-fn :stream/stream/process)
 #+END_SRC
 
+All the messages from before you changed the stream processor will be incremented, but all the ones after you made the change will be decremented.
+
 Now let's say you want to add another node. All you have to do is point it at a running kafka broker in your config.edn and start it up. Your database, stream-processors, and api endpoints will automagically stay in sync.
 
 Easy as pi!
