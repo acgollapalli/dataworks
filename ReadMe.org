@@ -90,7 +90,7 @@ Dataworks... doesn't really follow that model. As we all know, "code is data", s
 1) Instances do not have to be redeployed when code changes. Because instances are kept synchronized with the database as the application runs, number of deployments is minimalized, and operations complexity reduced.
 2) Your code can be queried. (we're working on this, give it time)
 3) Instead of working at the level of the file or namespace, you're really working at the level of the function. So far as the application is concerned, what is changing, all that is really changing, are functions. You're no longer managing services, or jar files. You're managing functions.
-4) You can easily make dataworks do things that you wouldn't expect, because in dataworks you can do anything. It's just a way of storing and deploying functions, with some handy utils built in. You might even say "It's just a library," although it really is more on the framework side of things.
+4) You can easily make dataworks do things that you wouldn't expect, because in dataworks you can do anything. It's just a way of storing and deploying functions, with some handy utils built in. You might even say "It's just a library," although it really is more on the framework side of things. Actually, it's more like "the thing your code runs on", not even a part of /your/ code at all.
 5) Dependencies are handled on the level of the function, not the namespace. (and even that is a work in progress)
 6) You no longer have to worry about circular dependencies, because they're allowed.
 7) You no longer have to wait for `lein uberjar` to create a build.
