@@ -140,3 +140,5 @@ Developers should be able to develop stored functions in an IDE-like environment
 Given the nature of our database and how stored-functions work, it should be possible to capture and "replay" the various HTTP requests and/or kafka streams with modified developer-level code, for testing purposes. One should be able to receive an HTTP request, or series of HTTP requests, or a series of kafka messages and test those requests/messages with multiple iterations of code to see what would have happened in real-life scenarios with the modified code. (given the bitemporality of the user-db, one should even be able to "merge" the result of the test, with the production db, if the data in the production db is incorrect, and can do so without losing the initial production data or the test data, however, that functionality is not to be expected in 0.8).
 
 *** 1.0 all of the above, load-tested and optimized
+
+We built this software to meet our own B2B integration and automation needs. If that's something you need, you should contact our consulting company [[JNA Square][acgollapalli@jnasquare.com]].
