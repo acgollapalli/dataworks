@@ -3,7 +3,7 @@
 ** Introduction
 Dataworks is a distributed-by-default stored-function engine with REST API and stream processing capabilities built on top of a bitemporal, graph-query enabled document-store.
 ** Some Examples
-Using the utils in the dataworks.dev.utils namespace, we can define a new endpoint (or collector as we call it) on a running dataworks cluster
+Using the utils in the dataworks.dev.utils namespace, we can define a new endpoint (or collector as we call it) on a running dataworks cluster. (Make sure to point the url at your dataworks cluster.)
 #+BEGIN_SRC clojure
 (def-collector :hello-world
   "hello-world"
@@ -19,7 +19,7 @@ Now your endpoint is available at <your-app-url>/user/hello-world. Try it at the
 curl localhost:3000/user/hello-world
 #+END_SRC
 
-And when you're running it on a cluster, that endpoint will be on all of them.
+That endpoint will be added on all of the nodes in your cluster, without any intervention on your part.
 
 Let's say you want to change it:
 #+BEGIN_SRC clojure
