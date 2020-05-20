@@ -282,7 +282,7 @@
    Doesn't eval. Accepts time-literals."
   [{:stored-function/keys [type] :crux.db/keys [id] :as params} key]
   (println "Checking" key "parseability: " id)
-  (if-let [value (get params (if type (get-entity-param key type) field))]
+  (if-let [value (get params (if type (get-entity-param key type) key))]
     (try (assoc params (get-entity-param key type) (read-string value))
          (catch Exception e
            {:status :failure
