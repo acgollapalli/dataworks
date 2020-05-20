@@ -220,7 +220,9 @@
      (if fields
        (let [field (first fields)]
          (println "Checking for null:" field)
-         (if (nil? (get m (get-entity-param field type)))
+         (if (nil? (get m (if type
+                            (get-entity-param field type)
+                            field)))
            {:status :failure
             :message (generate-message
                       field "%-must-have-a-value")}
@@ -236,7 +238,9 @@
      (if fields
        (let [field (first fields)]
          (println "Checking for empty collection:" field)
-         (if-let [val (get m (get-entity-param field type))]
+         (if-let [val (get m (if type
+                               (get-entity-param field type)
+                               field))]
            (cond (not (coll? val))
                  (failure
                   (generate-message
@@ -278,7 +282,7 @@
    Doesn't eval. Accepts time-literals."
   [{:stored-function/keys [type] :crux.db/keys [id] :as params} key]
   (println "Checking" key "parseability: " id)
-  (if-let [value (get params (get-entity-param key type))]
+  (if-let [value (get params (if type (get-entity-param key type) field))]
     (try (assoc params (get-entity-param key type) (read-string value))
          (catch Exception e
            {:status :failure
