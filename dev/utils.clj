@@ -1,4 +1,9 @@
-(ns dataworks.dev.utils)
+(ns dataworks.dev.utils
+  (:require
+   [dataworks.utils.common :refer :all]
+   [clj-http.client :as client]
+   [cheshire.core :as cheshire]
+   [yada.yada :refer [as-resource]]))
 
 (comment
   "You'll want to just eval everything below this, when
@@ -7,13 +12,14 @@
    Look for these in the docs.
    ... arguably the easiest way is to just eval the whole buffer")
 
-
 (def url (atom "http://localhost:3001/")) ;; configure me!
 
-(require '[dataworks.utils.common :refer :all]
-         '[clj-http.client :as client]
-         '[cheshire.core :as cheshire]
-         '[yada.yada :refer [as-resource]])
+(defn login [user pass]
+  (client/post
+   (str @url "app/login")
+   {:form-params {:user user
+                  :pass pass}
+    :content-type :json}))
 
 (def transformers (atom {}))
 

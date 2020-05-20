@@ -203,7 +203,9 @@
      (if fields
        (let [field (first fields)]
          (println "Checking for blank:" field)
-         (if (string/blank? (get m (get-entity-param field type)))
+         (if (string/blank? (get m (if type
+                                     (get-entity-param field type)
+                                     field)))
            {:status :failure
             :message (generate-message
                       field "%-cannot-be-blank")}
