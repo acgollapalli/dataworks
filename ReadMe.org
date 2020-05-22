@@ -32,7 +32,7 @@ Let's say you want to change it:
 (send-fn :collector/hello)
 #+END_SRC
 
-Try and get that same ednpoint after having made the changes, it should return the new value!
+Try and get that same endpoint after having made the changes, it should return the new value!
 
 Let's say we want to do some stream processing. That's easy too.
 Let's take from a kafka topic, conveniently called "input ", increase the value, and then  send it to another topic, conveniently called "output":
