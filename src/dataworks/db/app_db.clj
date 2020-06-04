@@ -27,7 +27,6 @@
              internal-kafka-settings))]
     (crux/sync db)
     db)
-
   :stop
   (.close app-db))
 

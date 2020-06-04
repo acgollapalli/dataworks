@@ -20,5 +20,6 @@
   :target-path "target/%s"
   :plugins  [[lein-cljfmt "0.6.7"]]
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[com.clojure-goes-fast/clj-memory-meter "0.1.2"]]
+             :dev {:dependencies [[com.clojure-goes-fast/clj-memory-meter "0.1.2"]
+                                  [juxt/crux-kafka-embedded "20.04-1.8.2-alpha"]]
                    :jvm-opts ["-Djdk.attach.allowAttachSelf"] }})

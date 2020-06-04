@@ -1,7 +1,7 @@
-{
- :jwt-secret "This secret ain't a secret, so don't use it, ya dog faced pony soldier. --Joe Biden, probably."
+{ :jwt-secret "This secret ain't a secret, so don't use it, ya dog faced pony soldier. --Joe Biden, probably."
  :port 3000
-{:crux.kafka/tx-topic "dataworks-internal.crux-transaction-log"
+ :internal-kafka-settings
+ {:crux.kafka/tx-topic "dataworks-internal.crux-transaction-log"
   :crux.kafka/doc-topic "dataworks-internal.crux-docs"
   :crux.kafka/replication-factor 3
   :crux.kafka/doc-partitions 6

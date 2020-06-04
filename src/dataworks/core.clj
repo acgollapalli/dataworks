@@ -7,8 +7,7 @@
                                user-resource]]
    [dataworks.utils.function :refer [stored-fns]]
    [mount.core :refer [defstate] :as mount]
-   [yada.yada :refer [listener as-resource]]
-   )
+   [yada.yada :refer [listener as-resource]])
   (:gen-class))
 
 (def routes
@@ -29,10 +28,12 @@
     [true (as-resource nil)]]])
 
 (def port
-  (-> "config.edn"
+  (or 
+   (-> "config.edn"
       slurp
       edn/read-string
-      :port))
+      :port)
+   3000))
 
 (defstate svr
   :start
