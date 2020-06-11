@@ -1,8 +1,8 @@
 (ns dataworks.utils.dev
   (:require
    [dataworks.utils.common :refer :all]
-   [dataworks.transformers :refer [transformers]]
-   [dataworks.transacters :refer [transact!]]
+   [dataworks.transformers :as form]
+   [dataworks.transactors :refer [transact!]]
    [dataworks.streams :refer [stream!]]
    [dataworks.core :as dataworks]
    [crux.kafka.embedded :as ek]
@@ -21,7 +21,15 @@
 ;; in the repl actually persisted your changes in the source
 ;; code, while automatically handling versioning as well.
 
-(def url (atom "http://localhost:3000/")) ;; configure me!
+(def url (atom (if-let [a (try (let [url-ize #(str "http://localhost:" % "/")]
+                                 (some->
+                                  "config.edn"
+                                  slurp
+                                  read-string
+                                  :port
+                                  url-ize))
+                               (catch Exception _ nil))]
+                 "http://localhost:3000/"))) ;; configure me!
 
 (defn embedded-kafka
  []
@@ -52,7 +60,7 @@
                 read-string 
                 :internal-kafka-settings)
   (embedded-kafka))
- (-main)))
+ (dataworks/-main))
 
 
 (defn login [user pass]
@@ -161,6 +169,8 @@
               :transformer @transformers
               :transactor @transactors)
             (keyword f))]
-     (if (exists? fn-type f)
+     (try (if (exists? fn-type f)
        (update-fn fn-type f)
-       (create-fn fn-type f)))))
+       (create-fn fn-type f))
+          (catch Exception e
+            (println e))))))
