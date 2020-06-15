@@ -74,7 +74,7 @@
         (success (exclude-ns-keys stream :eval)))
       node)))
 
-(defn update-stream!
+(defn close-old-stream!
   "close old stream and add new one"
   [{:stream/keys [name] :as stream}]
   (map close!
@@ -147,7 +147,7 @@
        error-handler-has-transducer?
        evalidate-error-handler
        added-to-db?
-       update-stream!
+       update-old-stream!
        update-graph!))
 
 (defn start-stream!
