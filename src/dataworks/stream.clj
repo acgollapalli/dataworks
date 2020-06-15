@@ -134,10 +134,10 @@
        update-graph!))
 
 (defn update-stream!
-  [stream]
+  [stream name]
   (->? stream
        (set-ns :stream)
-       updating-correct-function?
+       (updating-correct-function? name)
        valid-name?
        add-current-stored-function
        (has-parsed-params? :transducer :error-handler)
