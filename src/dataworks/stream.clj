@@ -141,7 +141,6 @@
        valid-name?
        add-current-stored-function
        (has-parsed-params? :transducer :error-handler)
-       function-already-exists?
        validate-buffer
        transducer-has-buffer?
        evalidate-transducer
