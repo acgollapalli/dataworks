@@ -147,7 +147,7 @@
        error-handler-has-transducer?
        evalidate-error-handler
        added-to-db?
-       update-old-stream!
+       close-old-stream!
        update-graph!))
 
 (defn start-stream!
