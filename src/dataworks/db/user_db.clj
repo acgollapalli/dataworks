@@ -24,7 +24,7 @@
                                     crux.kv.rocksdb/kv-store]}
              kafka-settings))]
     (println "synchronizing user-db")
-    (crux/sync db)
+    (crux/sync db (time/new-duration 3 :seconds))
     db)
 
   :stop
