@@ -23,6 +23,7 @@
              {:crux.node/topology '[crux.kafka/topology
                                     crux.kv.rocksdb/kv-store]}
              kafka-settings))]
+    (println "synchronizing user-db")
     (crux/sync db)
     db)
 

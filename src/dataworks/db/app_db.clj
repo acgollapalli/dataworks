@@ -25,6 +25,7 @@
              {:crux.node/topology '[crux.kafka/topology
                                     crux.kv.rocksdb/kv-store]}
              internal-kafka-settings))]
+    (println "synchronizing app-db")
     (crux/sync db)
     db)
   :stop
