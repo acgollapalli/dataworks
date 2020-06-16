@@ -26,7 +26,7 @@
                                     crux.kv.rocksdb/kv-store]}
              internal-kafka-settings))]
     (println "synchronizing app-db")
-    (crux/sync db (time/new-duration 3 :seconds))
+    (crux/sync db (tick.alpha.api/new-duration 3 :seconds))
     db)
   :stop
   (.close app-db))
