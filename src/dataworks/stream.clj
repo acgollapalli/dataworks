@@ -59,9 +59,16 @@
       (assoc stream :eval/error-handler xform)))
     stream))
 
+(defn close-old-stream!
+  "close old stream and add new one"
+  [{:stream/keys [name] :as stream}]
+  (map close!
+       (channel-filter (vals (name @nodes)))))
+
 (defn add-stream!
   "Add stream to streams."
   [{:stream/keys [name] :as stream}]
+  (close-old-stream! stream)
   (let [ns (namespace name)
         node (get-node stream)
         subgraph (get-edges stream)]
@@ -73,13 +80,6 @@
                      (partial filter #(not= (second %) name))))
         (success (exclude-ns-keys stream :eval)))
       node)))
-
-(defn close-old-stream!
-  "close old stream and add new one"
-  [{:stream/keys [name] :as stream}]
-  (map close!
-       (channel-filter (vals (name @nodes))))
-  (add-stream! stream))
 
 (defn validate-buffer
   [{:stream/keys [buffer] :as params}]
@@ -147,7 +147,7 @@
        error-handler-has-transducer?
        evalidate-error-handler
        added-to-db?
-       close-old-stream!
+       add-stream!
        update-graph!))
 
 (defn start-stream!
