@@ -1,6 +1,8 @@
 (ns dataworks.collectors
   (:require
+   [camel-snake-kebab.core :as case]
    [clojure.pprint :refer [pprint]]
+   [crux.api :as crux]
    [dataworks.authentication :refer [authenticate
                                      authorize]]
    [dataworks.utils.common :refer :all]
@@ -13,11 +15,10 @@
    [dataworks.transactors :refer [transact!]]
    [dataworks.transformers :refer [transformers]]
    [dataworks.streams :refer [stream!]]
-   [crux.api :as crux]
    [mount.core :refer [defstate] :as mount]
+   [schema.core :refer [defschema] :as schema]
    [tick.alpha.api :as tick]
-   [yada.yada :refer [as-resource] :as yada]
-   [schema.core :refer [defschema] :as schema]))
+   [yada.yada :refer [as-resource] :as yada]))
 
 
 (def collector-ns *ns*)

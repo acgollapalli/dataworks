@@ -12,4 +12,5 @@
        juxt/crux-kafka {:mvn/version "20.05-1.8.4-alpha"}
        juxt/crux-rocksdb {:mvn/version "20.05-1.8.4-alpha"}
        ;;juxt/crux-kafka-embedded {:mvn/version "20.05-1.8.4-alpha"}
+       camel-snake-kebab {:mvn/version "0.4.1"}
        }}
