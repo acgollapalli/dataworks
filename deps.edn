@@ -11,6 +11,6 @@
        juxt/crux-core {:mvn/version "20.06-1.9.1-beta"}
        juxt/crux-kafka {:mvn/version "20.06-1.9.1-beta"}
        juxt/crux-rocksdb {:mvn/version "20.06-1.9.1-beta"}
-       ;;juxt/crux-kafka-embedded {:mvn/version "20.06-1.9.1-beta"}
+       juxt/crux-kafka-embedded {:mvn/version "20.06-1.9.1-beta"}
        camel-snake-kebab {:mvn/version "0.4.1"}
        }}
