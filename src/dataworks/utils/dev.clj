@@ -32,11 +32,17 @@
                  "http://localhost:3000/"))) ;; configure me!
 
 (defn embedded-kafka
- []
- (ek/start-embedded-kafka 
-  {:crux.kafka.embedded/zookeeper-data-dir (str (io/file  "./zk-data"))
-   :crux.kafka.embedded/kafka-log-dir (str (io/file "./kafka-log"))
-   :crux.kafka.embedded/kafka-port 9092}))
+  []
+  (ek/start-embedded-kafka
+   (merge
+    {:crux.kafka.embedded/zookeeper-data-dir (str (io/file  "./zk-data"))
+     :crux.kafka.embedded/kafka-log-dir (str (io/file "./kafka-log"))
+     :crux.kafka.embedded/kafka-port 9092}
+    (try (-> "config.edn"
+             slurp
+             read-string
+             :embedded-kafka)
+         (catch Exception _ {})))))
 
 (defn go
  "starts a local dataworks node. 
@@ -53,10 +59,15 @@
                    (str \"the secret to development is: \" 
                         secret))"
      :port 3000})))
- (when-not (-> "config.edn" 
-                slurp 
-                read-string 
-                :internal-kafka-settings)
+  (when (or (-> "config.edn"
+                slurp
+                read-string
+                :internal-kafka-settings
+                nil?)
+            (-> "config.edn"
+                slurp
+                read-string
+                :embedded-kafka))
   (embedded-kafka))
  (dataworks/-main))
 
