@@ -14,10 +14,18 @@
    [yada.yada :as yada]))
 
 (def secret
-  (-> "config.edn"
-      slurp
-      edn/read-string
-      :jwt-secret))
+  (try
+    (-> "config.edn"
+        slurp
+        edn/read-string
+        :jwt-secret)
+    (catch Exception _
+      (do
+        (println "No :jwt-secret in config.edn.")
+        (println "Using dev jwt-secret.")
+        "(def secret-to-development
+           (str \"the secret to development is\"
+                secret-to-development))")))
 
 (defn create-token [{:user/keys [user-name roles]}]
   {:token

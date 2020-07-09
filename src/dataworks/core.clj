@@ -28,12 +28,12 @@
     [true (as-resource nil)]]])
 
 (def port
-  (or 
+  (try
    (-> "config.edn"
       slurp
       edn/read-string
       :port)
-   3000))
+   (catch Exception _ 3000)))
 
 (defstate svr
   :start
