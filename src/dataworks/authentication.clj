@@ -25,7 +25,7 @@
         (println "Using dev jwt-secret.")
         "(def secret-to-development
            (str \"the secret to development is\"
-                secret-to-development))")))
+                secret-to-development))"))))
 
 (defn create-token [{:user/keys [user-name roles]}]
   {:token
