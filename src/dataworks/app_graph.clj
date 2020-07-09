@@ -17,7 +17,8 @@
   (if-let [channel (get-in @nodes [stream :input])]
     (go (>! channel data))))
 
-(def streams
+(defstate streams
+  :start
   (list
    ;; let's us know when functions need to be updated
    {:stream/name :kafka/dataworks.internal.functions
@@ -33,7 +34,8 @@
     :eval/buffer 10
     :eval/transducer (map print-cont)}))
 
-(def edges
+(defstate edges
+  :start
   (into []
         (comp (map stream/get-edges)
               cat)
