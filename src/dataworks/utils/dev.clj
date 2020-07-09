@@ -45,31 +45,37 @@
          (catch Exception _ {})))))
 
 (defn go
- "starts a local dataworks node. 
-  If there is no config file, then it creates one suitable for 
-  development, (but ONLY for development). If no kafka info is 
-  specified, it starts an embedded kafka, again for development 
+  "starts a local dataworks node.
+  If there is no config file, then it creates one suitable for
+  development, (but ONLY for development). If no kafka info is
+  specified, it starts an embedded kafka, again for development
   purposes."
- []
- (when-not (try (slurp "config.edn")
-            (catch Exception _ nil))
-  (spit "config.edn" 
-   (pr-str 
-    {:jwt-secret "(def secret 
+  []
+  (when-not (try (slurp "config.edn")
+                 (catch Exception _ nil))
+    (spit "config.edn"
+          (pr-str
+           {:jwt-secret "(def secret
                    (str \"the secret to development is: \" 
                         secret))"
-     :port 3000})))
-  (when (or (-> "config.edn"
-                slurp
-                read-string
-                :internal-kafka-settings
-                nil?)
-            (-> "config.edn"
-                slurp
-                read-string
-                :embedded-kafka))
-  (embedded-kafka))
- (dataworks/-main))
+            :port 3000})))
+  (when (and
+         (->> "config.edn"
+              slurp
+              read-string
+              :embedded-kafka
+              (partial not= :false))
+         (or (-> "config.edn"
+                 slurp
+                 read-string
+                 :internal-kafka-settings
+                 nil?)
+             (-> "config.edn"
+                 slurp
+                 read-string
+                 :embedded-kafka)))
+    (embedded-kafka))
+  (dataworks/-main))
 
 
 (defn login [user pass]
