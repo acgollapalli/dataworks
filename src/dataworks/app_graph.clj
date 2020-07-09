@@ -3,7 +3,6 @@
    [clojure.core.async :refer [>! close! go untap-all]]
    [dataworks.utils.kafka :refer [consumer-instance]]
    [dataworks.utils.common :refer [print-cont]]
-   [dataworks.utils.function :refer [start-function-xform]]
    [dataworks.utils.stream :as stream]
    [mount.core :refer [defstate]]))
 
@@ -32,7 +31,7 @@
    {:stream/name :stream/dataworks.internal.functions
     :eval/upstream #{:kafka/dataworks.internal.functions}
     :eval/buffer 10
-    :eval/transducer (map start-function-xform)}))
+    :eval/transducer (map print-cont)}))
 
 (def edges
   (into []

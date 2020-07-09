@@ -8,8 +8,7 @@
    [dataworks.utils.common :refer :all]
    [dataworks.db.app-db :refer :all]
    [dataworks.app-graph :as app]
-   [dataworks.utils.stream :refer :all]
-   [dataworks.streams :refer [stream-ns
+   [dataworks.utils.stream :refer :all] [dataworks.streams :refer [stream-ns
                               nodes
                               edges]]
    [mount.core :refer [defstate]]
@@ -62,8 +61,8 @@
 (defn close-old-stream!
   "close old stream and add new one"
   [{:stream/keys [name] :as stream}]
-  (map close!
-       (channel-filter (vals (name @nodes)))))
+  (doseq [c (channel-filter (vals (name @nodes)))]
+    (close! c)))
 
 (defn add-stream!
   "Add stream to streams."
