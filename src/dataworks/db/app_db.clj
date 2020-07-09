@@ -7,10 +7,12 @@
    [mount.core :refer [defstate]]))
 
 (def internal-kafka-settings
-  (if-let [settings (-> "config.edn"
+  (if-let [settings (try
+                      (-> "config.edn"
                         slurp
                         read-string
-                        :internal-kafka-settings)]
+                        :internal-kafka-settings)
+                      (catch Exception _ nil))]
     settings
     {:crux.kafka/bootstrap-servers "localhost:9092"
      :crux.kafka/tx-topic (str "dataworks-internal."

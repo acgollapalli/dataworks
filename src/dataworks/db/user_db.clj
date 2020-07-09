@@ -7,10 +7,12 @@
    [tick.alpha.api :as time]))
 
 (def kafka-settings
-  (if-let [settings   (-> "config.edn"
+  (if-let [settings (try
+                      (-> "config.edn"
                           slurp
                           read-string
-                          :kafka-settings)]
+                          :kafka-settings)
+                      (catch Exception _ nil))]
     settings
     {:crux.kafka/bootstrap-servers "localhost:9092"
      :crux.kafka/tx-topic "dataworks.crux-transaction-log"
