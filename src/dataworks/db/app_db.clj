@@ -7,18 +7,17 @@
    [mount.core :refer [defstate]]))
 
 (def internal-kafka-settings
-  (if-let [settings (try
-                      (-> "config.edn"
-                        slurp
-                        read-string
-                        :internal-kafka-settings)
-                      (catch Exception _ nil))]
-    settings
-    {:crux.kafka/bootstrap-servers "localhost:9092"
-     :crux.kafka/tx-topic (str "dataworks-internal."
-                               "crux-transaction-log")
-     :crux.kafka/doc-topic "dataworks-internal.crux-docs"
-     :crux.kv/db-dir "internal-data"}))
+  (try
+    (-> "config.edn"
+        slurp
+        read-string
+        :internal-kafka-settings)
+    (catch Exception _
+      {:crux.kafka/bootstrap-servers "localhost:9092"
+       :crux.kafka/tx-topic (str "dataworks-internal."
+                                 "crux-transaction-log")
+       :crux.kafka/doc-topic "dataworks-internal.crux-docs"
+       :crux.kv/db-dir "internal-data"})))
 
 (defstate app-db
   :start
