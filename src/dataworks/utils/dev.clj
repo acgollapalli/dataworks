@@ -21,29 +21,34 @@
 ;; in the repl actually persisted your changes in the source
 ;; code, while automatically handling versioning as well.
 
-(def url (atom (if-let [a (try (let [url-ize #(str "http://localhost:" % "/")]
-                                 (some->
-                                  "config.edn"
-                                  slurp
-                                  read-string
-                                  :port
-                                  url-ize))
-                               (catch Exception _ nil))]
-                 "http://localhost:3000/"))) ;; configure me!
+(def url
+  (atom (if-let [a (try
+                     (let [url-ize
+                           #(str "http://localhost:" % "/")]
+                       (some->
+                        "config.edn"
+                        slurp
+                        read-string
+                        :port
+                        url-ize))
+                     (catch Exception _ nil))]
+          "http://localhost:3000/"))) ;; configure me!
 
 (defn embedded-kafka
   []
   (ek/start-embedded-kafka
    (merge
-    {:crux.kafka.embedded/zookeeper-data-dir (str (io/file  "./zk-data"))
-     :crux.kafka.embedded/kafka-log-dir (str (io/file "./kafka-log"))
+    {:crux.kafka.embedded/zookeeper-data-dir
+     (str (io/file  "./zk-data"))
+     :crux.kafka.embedded/kafka-log-dir
+     (str (io/file "./kafka-log"))
      :crux.kafka.embedded/kafka-port 9092}
-    (try (->> "config.edn"
-             slurp
-             read-string
-             :embedded-kafka
-             (partial into {}))
-         (catch Exception _ {})))))
+    (let [m (try (-> "config.edn"
+                     slurp
+                     read-string
+                     :embedded-kafka)
+                 (catch Exception _ {}))]
+      (if (map? m) m {})))))
 
 (defn go
   "starts a local dataworks node.
@@ -60,21 +65,22 @@
                    (str \"the secret to development is: \" 
                         secret))"
             :port 3000})))
-  (when (and
-         (->> "config.edn"
-              slurp
-              read-string
-              :embedded-kafka
-              (partial not= :false))
-         (or (-> "config.edn"
-                 slurp
-                 read-string
-                 :internal-kafka-settings
-                 nil?)
-             (-> "config.edn"
-                 slurp
-                 read-string
-                 :embedded-kafka)))
+  (when
+      (and
+       (->> "config.edn"
+            slurp
+            read-string
+            :embedded-kafka
+            (partial not= :false))
+       (or (-> "config.edn"
+               slurp
+               read-string
+               :internal-kafka-settings
+               nil?)
+           (-> "config.edn"
+               slurp
+               read-string
+               :embedded-kafka)))
     (embedded-kafka))
   (dataworks/-main))
 
