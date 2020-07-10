@@ -65,23 +65,11 @@
                    (str \"the secret to development is: \" 
                         secret))"
             :port 3000})))
-  (when
-      (and
-       (->> "config.edn"
-            slurp
-            read-string
-            :embedded-kafka
-            (partial not= :false))
-       (or (-> "config.edn"
-               slurp
-               read-string
-               :internal-kafka-settings
-               nil?)
-           (-> "config.edn"
-               slurp
-               read-string
-               :embedded-kafka)))
-    (embedded-kafka))
+  (let [config (-> "config.edn" slurp read-string)]
+    (when (not= :false (:embedded-kafka config))
+      (when (or (nil? (:internal-kafka-settings config))
+                (:embedded-kafka config))
+        (embedded-kafka))))
   (dataworks/-main))
 
 
