@@ -41,7 +41,8 @@
     (try (-> "config.edn"
              slurp
              read-string
-             :embedded-kafka)
+             :embedded-kafka
+             (partial into {}))
          (catch Exception _ {})))))
 
 (defn go
