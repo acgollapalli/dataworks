@@ -38,7 +38,7 @@
     {:crux.kafka.embedded/zookeeper-data-dir (str (io/file  "./zk-data"))
      :crux.kafka.embedded/kafka-log-dir (str (io/file "./kafka-log"))
      :crux.kafka.embedded/kafka-port 9092}
-    (try (-> "config.edn"
+    (try (->> "config.edn"
              slurp
              read-string
              :embedded-kafka
