@@ -11,14 +11,16 @@
    [crux.kafka.json JsonSerializer JsonDeserializer]))
 
 (def kafka-settings
-  (try
-    (-> "config.edn"
-        slurp
-        read-string
-        :kafka-settings
-        :crux.kafka/kafka-properties-map)
-    (catch Exception _
-      {"bootstrap.servers" "localhost:9092"})))
+  (merge
+   {"bootstrap.servers" "localhost:9092"}
+   (try
+     (-> "config.edn"
+         slurp
+         read-string
+         :kafka-settings
+         :crux.kafka/kafka-properties-map)
+     (catch Exception _
+       {}))))
 
 (defn consumer-instance
   "Create the consumer instance to consume
