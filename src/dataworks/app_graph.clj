@@ -3,6 +3,7 @@
    [clojure.core.async :refer [>! close! go untap-all]]
    [dataworks.utils.kafka :refer [consumer-instance]]
    [dataworks.utils.common :refer [print-cont]]
+
    [dataworks.utils.stream :as stream]
    [mount.core :refer [defstate]]))
 
@@ -30,7 +31,7 @@
     :eval/transducer (map :value)}
 
    {:stream/name :stream/dataworks.internal.functions
-    :eval/upstream #{:kafka/dataworks.internal.functions}
+    :stream/upstream #{:kafka/dataworks.internal.functions}
     :eval/buffer 10
     :eval/transducer (map print-cont)}))
 
