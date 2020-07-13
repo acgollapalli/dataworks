@@ -1,5 +1,4 @@
 * Dataworks
-
 ** Introduction
 Dataworks is a distributed-by-default stored-function engine with REST API and stream processing capabilities built on top of a bitemporal, graph-query enabled document-store.
 ** Some Examples

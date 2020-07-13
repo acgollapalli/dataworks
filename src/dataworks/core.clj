@@ -44,18 +44,16 @@
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (do
-    (apply mount/start
-           (mount/find-all-states))
-    (doseq [f stored-fns]
-      (println f "started"))
-    (println)
-    (print "Hello")
-    (Thread/sleep 750) ;; remove these in prod.
-    (print " .")
-    (Thread/sleep 750)
-    (print " .")
-    (Thread/sleep 750)
-    (print " . ")
-    (Thread/sleep 750)
-    (println "ZA WARRUDO!!!!!")))
+  (mount/start)
+  (doseq [f stored-fns]
+    (println f "started"))
+  (println)
+  (print "Hello")
+  (Thread/sleep 750) ;; remove these in prod.
+  (print " .")
+  (Thread/sleep 750)
+  (print " .")
+  (Thread/sleep 750)
+  (print " . ")
+  (Thread/sleep 750)
+  (println "ZA WARRUDO!!!!!"))

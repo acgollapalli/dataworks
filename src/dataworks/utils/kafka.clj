@@ -4,6 +4,8 @@
    [mount.core :refer [defstate]]
    [tick.alpha.api :as tick])
   (:import
+   [org.apache.kafka.clients.admin
+    AdminClient NewTopic]
    org.apache.kafka.clients.consumer.KafkaConsumer
    [org.apache.kafka.clients.producer
     KafkaProducer ProducerRecord]
@@ -22,11 +24,44 @@
      (catch Exception _
        {}))))
 
+(defn new-topic-object
+  [[topic {:keys [number-of-partitions
+                  replication-factor]}]]
+  (NewTopic. topic number-of-partitions replication-factor))
+
+(defn topics-to-create
+  [admin-client required-topics]
+  (into {}
+        (filter
+         (comp empty?
+               (partial get
+                        (-> admin-client
+                            .listTopics
+                            .names
+                            .get))
+               first))
+        required-topics))
+
+(defn create-topics
+  [admin-client required-topics]
+  (->> required-topics
+       (topics-to-create admin-client)
+       (map new-topic-object)
+       (.createTopics admin-client)
+       .all))
+
+(defstate admin
+  :start
+  (doto (AdminClient/create kafka-settings)
+    (create-topics required-topics))
+  :stop
+  (.close admin))
+
 (defn consumer-instance
   "Create the consumer instance to consume
   from the provided kafka topic name"
   ([{:keys [topic name format settings]}]
-   (let [format (if format format :edn)
+   (let [format (or format :edn)
          deserializers {:edn EdnDeserializer
                         :json JsonDeserializer}
          consumer-props
@@ -38,6 +73,8 @@
            "enable.auto.commit" "true"}
           kafka-settings
           settings)]
+     (create-topics admin {topic {:number-of-partitions 6  ;; TODO make this configurable
+                                  :replication-factor 3}}) ;; TODO Document this.
      (doto (KafkaConsumer. consumer-props)
        (.subscribe [topic])))))
 
