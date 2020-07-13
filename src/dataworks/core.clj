@@ -45,7 +45,8 @@
   "I don't do a whole lot ... yet."
   [& args]
   (do
-    (mount/start)
+    (apply mount/start
+           (mount/find-all-states))
     (doseq [f stored-fns]
       (println f "started"))
     (println)
