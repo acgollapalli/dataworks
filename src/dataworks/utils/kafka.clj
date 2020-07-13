@@ -52,8 +52,7 @@
 
 (defstate admin
   :start
-  (doto (AdminClient/create kafka-settings)
-    (create-topics required-topics))
+  (AdminClient/create kafka-settings)
   :stop
   (.close admin))
 
