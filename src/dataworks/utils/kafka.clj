@@ -42,7 +42,7 @@
                first))
         required-topics))
 
-(defn create-topics
+(defn create-topics ;;TODO add println statements & logging
   [admin-client required-topics]
   (->> required-topics
        (topics-to-create admin-client)
@@ -56,10 +56,24 @@
   :stop
   (.close admin))
 
+(def default-topic-settings
+  (let [config (try
+                 (-> "config.edn" slurp read-string)
+                 (catch Exception _  {}))
+        {:keys [embedded-kafka
+                default-topic-settings]} config]
+    (or
+     default-topic-settings
+     (when embedded-kafka
+       {:number-of-partitions 1
+        :replication-factor 1})
+     {:number-of-partitions 6
+      :replication-factor 3})))
+
 (defn consumer-instance
   "Create the consumer instance to consume
   from the provided kafka topic name"
-  ([{:keys [topic name format settings]}]
+  ([{:keys [topic name format consumer-settings topic-settings]}]
    (let [format (or format :edn)
          deserializers {:edn EdnDeserializer
                         :json JsonDeserializer}
@@ -71,9 +85,9 @@
            "auto.offset.reset" "earliest"
            "enable.auto.commit" "true"}
           kafka-settings
-          settings)]
-     (create-topics admin {topic {:number-of-partitions 6  ;; TODO make this configurable
-                                  :replication-factor 3}}) ;; TODO Document this.
+          consumer-settings)]
+     (create-topics admin {topic (merge default-topic-settings
+                                        topic-settings)}) ;; TODO Document this.
      (doto (KafkaConsumer. consumer-props)
        (.subscribe [topic])))))
 

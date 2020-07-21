@@ -1,6 +1,7 @@
 (ns dataworks.collectors
   (:require
    [camel-snake-kebab.core :as case]
+   [camel-snake-kebab.extras :as case.extras]
    [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
    [dataworks.authentication :refer [authenticate

@@ -64,7 +64,10 @@
            {:jwt-secret "(def secret
                    (str \"the secret to development is: \" 
                         secret))"
-            :port 3000})))
+            :port 3000
+            :embedded-kafka :true
+            :default-topic-settings {:number-of-partitions 1
+                                     :replication-factor 1}})))
   (let [config (-> "config.edn" slurp read-string)]
     (when (not= :false (:embedded-kafka config))
       (when (or (nil? (:internal-kafka-settings config))
@@ -131,7 +134,9 @@
   ([name {:keys [buffer transducer error-handler] :as params}]
    (let [if-quote (fn [params key value]
                     (if value
-                      (assoc params key (pr-str value))
+                      (assoc params key (if (int? value)
+                                          value
+                                          (pr-str value)))
                       params))]
      (-> params
          (assoc :name name)
@@ -180,7 +185,7 @@
               :transactor @transactors)
             (keyword f))]
      (try (if (exists? fn-type f)
-       (update-fn fn-type f)
-       (create-fn fn-type f))
+            (update-fn fn-type f)
+            (create-fn fn-type f))
           (catch Exception e
             (println e))))))

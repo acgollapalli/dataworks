@@ -69,7 +69,8 @@
 (defn create-transactor! [transactor]
   (->? transactor
        (set-ns :transactor)
-       (blank-field? :name :function)
+       (missing-field? :name)
+       (blank-field? :function)
        valid-name?
        (parseable? :function)
        function-already-exists?

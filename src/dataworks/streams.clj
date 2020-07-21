@@ -1,6 +1,7 @@
 (ns dataworks.streams
   (:require
    [camel-snake-kebab.core :as case]
+   [camel-snake-kebab.extras :as case.extras]
    [cheshire.core :as cheshire]
    [clojure.core.async :refer [go >!]]
    [crux.api :as crux]

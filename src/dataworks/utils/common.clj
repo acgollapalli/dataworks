@@ -257,7 +257,7 @@
 
 (defn valid-name?
   "Ensures that name can be converted to keyword.
-   Returns name as keyword."
+   Returns name as keyword." ;;TODO add checking for nil here
   [{:stored-function/keys [type] :as params}]
   (println "validating name" (get params (get-entity-param :name type)))
   (let [name ((get-entity-param :name type) params)]

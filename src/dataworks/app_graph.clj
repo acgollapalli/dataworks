@@ -27,7 +27,22 @@
     :eval/instance (consumer-instance
                     {:topic "dataworks.internal.functions"
                      :name (str (java.util.UUID/randomUUID))
-                     :format :edn})
+                     :format :edn
+                     :topic-settings
+                     (or
+                      (try
+                        (->> "config.edn"
+                             slurp
+                             read-string
+                             :internal-kafka-settings
+                             (clojure.walk/postwalk-replace
+                              {:crux.kafka/replication-factor
+                               :replication-factor
+                               :crux.kafka/doc-partitions
+                               :number-of-partitions}))
+                        (catch Exception _))
+                      {:number-of-partitions 1
+                       :replication-factor 1})})
     :eval/transducer (map :value)}
 
    {:stream/name :stream/dataworks.internal.functions
