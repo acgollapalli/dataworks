@@ -144,7 +144,7 @@
   ([topic message format]
    (let [instance (format producers)]
      (if instance
-       (go (.send instance
-                  (ProducerRecord. topic
-                                   message)))
+       (doto instance
+         (.send (ProducerRecord. topic message))
+         .flush)
        (produce! topic message)))))
