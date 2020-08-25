@@ -69,7 +69,10 @@
                      :name "dataworks"
                      :format format}))]
     ;; consumes kafka-topic and puts it on channel
-    (go-loop [msg (kafka/consume-records instance)]
+    (go-loop [msg (try
+                    (kafka/consume-records instance)
+                    (catch Exception e ;; THIS IS BAD, but fine for debugging because I'm literally the only person working on this thing.
+                      (println "failed to consume topic:" name "because of:" e)))]
       (if-not (empty? msg)
         (when (>! write (first msg))
           (recur (next msg)))
