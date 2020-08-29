@@ -82,7 +82,7 @@
           {"group.id" (str "dataworks/" name)
            "key.deserializer" (format deserializers)
            "value.deserializer" (format deserializers)
-           "auto.offset.reset" "earliest"
+           "auto.offset.reset" "latest"
            "enable.auto.commit" "true"}
           kafka-settings
           consumer-settings)]
