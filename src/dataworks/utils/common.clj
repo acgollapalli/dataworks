@@ -508,16 +508,20 @@
   "Recursive find and replace. Will replace anything with anything
    regardless of whether it's in a list, a map, a set or any of those
    nested one inside another. No pattern matching. Naive implementation.
+   Can also be used in front of pr-string in order ensure that maps
+   actually end up quoted as maps, sets as sets, etc.
    Is probably slow."
-  [form sym replacement]
-  (let [once-more (partial map #(recursive-replace % sym replacement))]
-    (cond
-      (map? form) (into {} (once-more form))
-      (vector? form) (into [] (once-more form))
-      (set? form) (into #{} (once-more form))
-      (seq? form) (once-more form)
-      (= form sym) replacement
-      :else form)))
+  ([form sym replacement]
+   (let [once-more (partial map #(recursive-replace % sym replacement))]
+     (cond
+       (map? form) (into {} (once-more form))
+       (vector? form) (into [] (once-more form))
+       (set? form) (into #{} (once-more form))
+       (seq? form) (once-more form)
+       (= form sym) replacement
+       :else form)))
+  ([form]
+   (recursive-replace form nil nil)))
 
 (defn replace-these
   "Wrapper around recursive-replace to accept multiple find-request

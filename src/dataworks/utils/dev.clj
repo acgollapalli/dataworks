@@ -110,7 +110,28 @@
              name
              {:name name
               :path path
-              :resource (pr-str (concat [] form))})))))
+              :resource (pr-str (recursive-replace form))})))))
+
+(comment
+  ;; TODO create an actual test suite
+  (def-collector :test-1
+    "test-1"
+    {:id :test-1
+     :description "test-1"
+     :methods {:get {:produces "application/text"
+                     :response (fn [ctx]
+                                 "test-1 successful")}}})
+  (def-collector :test-2
+    "test-2"
+    (->let
+     (defn response
+       [ctx]
+       "test-2 successful")
+
+     {:id :test-2
+      :description "test-2"
+      :methods {:get {:produces "application/text"
+                      :response response}}})))
 
 (defmacro def-transactor
   ([name args & form]
