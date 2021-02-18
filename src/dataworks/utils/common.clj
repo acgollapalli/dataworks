@@ -321,7 +321,6 @@
         current-function (:current/function params)]
     (loop [params? params?
            input params]
-
       (if (and params?
                (not= (:status input) :failure))
         (recur (next params?)
@@ -343,7 +342,6 @@
         current-function (:current/function params)]
     (loop [params? params?
            input params]
-      (println "input: " input)
       (if (and params?
                (not= (:status input) :failure))
         (recur (next params?)
