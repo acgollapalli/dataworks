@@ -328,7 +328,7 @@
                (let [param (first params?)
                      key (get-entity-param param function-type)]
                  (println "Checking for" param)
-                 (if-not (get params param)
+                 (if-not (get params key)
                    (assoc input key (key current-function))
                    input)))
         input))))

@@ -48,7 +48,8 @@
 (defn create-transformer! [transformer]
   (->? transformer
        (set-ns :transformer)
-       (blank-field? :name :function)
+       (missing-field? :name)
+       (blank-field? :function)
        valid-name?
        (parseable? :function)
        function-already-exists?

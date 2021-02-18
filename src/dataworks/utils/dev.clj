@@ -34,6 +34,9 @@
                      (catch Exception _ nil))]
           "http://localhost:3000/"))) ;; configure me!
 
+(def token
+  (atom "If you're reading this, you forgot to call set-token."))
+
 (defn embedded-kafka
   []
   (ek/start-embedded-kafka
@@ -75,13 +78,22 @@
         (embedded-kafka))))
   (dataworks/-main))
 
-
-(defn login [user pass]
+(defn get-token
+  [user pass]
   (client/post
    (str @url "app/login")
    {:form-params {:user user
                   :pass pass}
-    :content-type :json}))
+    :content-type :json
+    :as :json}))
+
+(defn set-token
+  "Resets the token value used in calls to the api by helper functions."
+  [user pass]
+  (->> (get-token user pass)
+      :body
+      :token
+      (reset! token)))
 
 ;; We define these so we can send our collectors to our 
 ;; dataworks instance
@@ -99,7 +111,9 @@
       (assoc m
              name
              {:name name
-              :function (pr-str (concat ['fn args] form))})))))
+              :function (pr-str (if (vector? args)
+                                  (concat ['fn args] form)
+                                  (recursive-replace args)))})))))
 
 (defmacro def-collector
   ([name path form]
@@ -171,7 +185,8 @@
         (str
          @url "app/"
          (stringify-keyword fn-type) "/"
-         (stringify-keyword name)))
+         (stringify-keyword name))
+        {:oauth-token @token})
        (catch Exception _ nil))))
 
 (defn update-fn
@@ -182,7 +197,9 @@
         (stringify-keyword fn-type) "/"
         (stringify-keyword (:name f)))
    {:form-params f
-    :content-type :edn}))
+    :oauth-token @token
+    :content-type :edn
+    :as :edn}))
 
 (defn create-fn
   [fn-type f]
@@ -191,6 +208,7 @@
    (str @url "app/"
         (stringify-keyword fn-type))
    {:form-params f
+    :oauth-token @token
     :content-type :edn
     :as :edn}))
 
@@ -210,3 +228,59 @@
             (create-fn fn-type f))
           (catch Exception e
             (println e))))))
+
+(defn send-all-fns
+  []
+  (map (fn [[k v]]
+         (map (comp send-fn
+                    (fn [f]
+                      (get-entity-param f k)))
+              (keys v)))
+       {:transformer @transformers,
+        :transactor @transactors,
+        :stream @streams,
+        :collector @collectors}))
+
+(defn test-exists?
+  [fn-type f]
+  (dataworks.db.app-db/entity
+   (apply keyword
+          (map stringify-keyword
+               [fn-type (:name f)]))))
+
+(defn test-create-fn
+  [fn-type f]
+  (println "create")
+  (println f)
+  (case (keyword fn-type)
+    :collector (dataworks.collector/create-collector! f)
+    :stream (dataworks.stream/create-stream! f)
+    :transformer (dataworks.transformer/create-transformer!)
+    :transactor (dataworks.transactor/create-transactor!)))
+
+(defn test-update-fn
+  [fn-type f]
+  (println "update")
+  (println f)
+  (let [fn-name (stringify-keyword (:name f))]
+    (case (keyword fn-type)
+      :collector (dataworks.collector/update-collector! fn-name f)
+      :stream (dataworks.stream/update-stream! fn-name f)
+      :transformer (dataworks.transformer/update-transformer! fn-name f)
+      :transactor (dataworks.transactor/update-transactor! fn-name f))))
+
+(defn test-fn
+  ([f]
+   (test-fn (namespace f) (name f)))
+  ([fn-type f]
+   (when (map? dataworks.core/svr)
+     (let [f (get
+              (case (keyword fn-type)
+                :collector @collectors
+                :stream @streams
+                :transformer @transformers
+                :transactor @transactors)
+              (keyword f))]
+       (if (test-exists? fn-type f)
+         (test-update-fn fn-type f)
+         (test-create-fn fn-type f))))))

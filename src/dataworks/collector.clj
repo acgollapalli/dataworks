@@ -32,15 +32,31 @@
 ;;     https://github.com/juxt/yada/tree/master/doc
 ;; (The manual on the website is outdated. We're on the alpha version of yada.)
 
+;;(defn validate-path [path]
+;;  (println "Validating path")
+;;  (println "path:" path)
+;;  (let [evald-path (try (read-string path)
+;;                        (catch Exception e path))]
+;;    (cond (symbol? evald-path) path
+;;          (and (or (set? evald-path)
+;;                   (vector? evald-path))
+;;               (every? #(or (keyword? %)
+;;                            (string? %)
+;;                            (= java.util.regex.Pattern (type %))
+;;                            (validate-path %))
+;;                       evald-path)) evald-path
+;;          (string? evald-path) evald-path)))
+
 (defn validate-path [path]
   (println "Validating path")
-  (let [evald-path (read-string path)]
-    (cond (symbol? evald-path) path
-          (and (vector? evald-path)
-               (every? #(or (keyword? %)
-                            (string? %))
-                       evald-path)) evald-path
-          (string? evald-path) evald-path)))
+  (cond
+    (string? path) path
+    (and (set? path)
+         (every? validate-path path)) path
+    (and (vector? path)
+         (every? #(or (string? %)
+                      (= java.util.regex.Pattern (type %))
+                      (keyword? %)) path)) path))
 
 (defn valid-path?
   [{:collector/keys [path] :as params}]
@@ -61,7 +77,7 @@
              (crux/db app-db)
              {:find ['e]
               :where [['e :stored-function/type :collector]
-                      ['e :collector/path path]]}))]
+                      ['e :collector/path (quote path)]]}))]
     {:status :failure
      :message :collector-with-path-already-exists
      :details other-collectors})
@@ -117,8 +133,8 @@
 (defn create-collector! [collector]
   (->? collector
        (set-ns :collector)
-       (missing-field? :name)
-       (blank-field? :path :resource)
+       (missing-field? :name :path)
+       (blank-field? :resource)
        valid-path?
        valid-name?
        (parseable? :resource)
@@ -138,7 +154,6 @@
        valid-path?
        (has-parsed-params? :resource)
        (valid-update? :path :resource)
-       valid-path?
        evalidate
        added-to-db?
        apply-collector!))

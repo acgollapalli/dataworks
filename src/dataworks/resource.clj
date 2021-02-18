@@ -40,8 +40,8 @@
    {:id (get-entity-param function-type "create")
     :description (str "resource for new or all"
                       (stringify-keyword function-type) "s")
-;;    :authentication auth/dev-authentication
-;;    :authorization auth/dev-authorization
+    :authentication auth/dev-authentication
+    :authorization auth/dev-authorization
     :methods {:get
               {:produces "application/edn"
                :response (fn [ctx]
@@ -63,8 +63,8 @@
    {:id (get-entity-param function-type "update")
     :description (str "resource for existing individual "
                       (stringify-keyword function-type) "s")
-;;    :authentication auth/dev-authentication ;; TODO add hierarchical
-;;    :authorization auth/dev-authorization   ;;      role authorization
+    :authentication auth/dev-authentication ;; TODO add hierarchical
+    :authorization auth/dev-authorization   ;;      role authorization
     :path-info? true
     :methods {:get
               {:produces "application/edn"
@@ -79,22 +79,34 @@
                (fn [ctx]
                  (let [name (get-in ctx [:request :path-info])
                        body (:body ctx)]
-                   (println "updating!")
                    (if-failure-response
                      ctx
                      (update! function-type name body)
                      406)))}}}))
 
+(defn match-route
+  [path-info]
+  (bidi/match-route ["" @atomic-routes] path-info))
+
 (def user-sub
   (fn [ctx]
     (let [path-info (get-in ctx [:request :path-info])]
-      (if-let [path (bidi/match-route
-                     ["" @atomic-routes] path-info)]
+      (if-let [path (match-route path-info)]
         (@resource-map (:handler path))
         (as-resource nil)))))
 
+(defn path-param-interceptor
+  ([{:keys [request] :as ctx}]
+   (assoc-in ctx
+             [:parameters :path]
+             (:route-params (match-route (:path-info request))))))
+
 (def user-resource
-  (resource
-   {:id :user
-    :path-info? true
-    :sub-resource user-sub}))
+  (yada.handler/append-interceptor
+   (yada.yada/handler
+    (resource
+     {:id :user
+      :path-info? true
+      :sub-resource user-sub}))
+   yada.swagger-parameters/parse-parameters
+   path-param-interceptor))

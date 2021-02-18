@@ -17,3 +17,5 @@ pom.xml.asc
 /internal-data/
 /user-data/
 /.cpcache/
+/kafka-log/
+/zk-data/
