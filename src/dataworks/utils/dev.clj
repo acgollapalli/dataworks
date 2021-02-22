@@ -284,3 +284,15 @@
        (if (test-exists? fn-type f)
          (test-update-fn fn-type f)
          (test-create-fn fn-type f))))))
+
+(defn test-all-fns
+  []
+  (map (fn [[k v]]
+         (map (comp test-fn
+                    (fn [f]
+                      (get-entity-param f k)))
+              (keys v)))
+       {:transformer @transformers,
+        :transactor @transactors,
+        :stream @streams,
+        :collector @collectors}))
