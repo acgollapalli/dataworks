@@ -1,7 +1,7 @@
-(ns dataworks.time-utils
+(ns dataworks.utils.time
   (:require
    [cheshire.generate :refer [add-encoder encode-str]]
-   [dataworks.common :refer [read-string]]
+   [dataworks.utils.common :refer [read-string]]
    [tick.alpha.api :as t :refer [instant]])) ;; everywhere else it's tick,
                                              ;; but we use it too damn often here
 
@@ -84,3 +84,11 @@
                                           (t/new-period 1 time))
                                      (t/time "00:00"))) ;; chucking out exceptions
                                    (catch Exception _)))))))) ;; like this is probably bad
+
+
+
+(defn get-millis [t]
+  (if-let [time (consume-time t)]
+  (t/millis (t/between (t/now)
+                       time)
+            (t/now))))

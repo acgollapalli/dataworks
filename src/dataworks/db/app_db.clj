@@ -1,30 +1,35 @@
 (ns dataworks.db.app-db
   (:require
    [clojure.java.io :as io]
-   [dataworks.common :refer :all]
+   [dataworks.utils.common :refer :all]
    [crux.api :as crux]
    [tick.alpha.api :as tick]
    [mount.core :refer [defstate]]))
 
 (def internal-kafka-settings
-  (if-let [settings (-> "config.edn"
-                        slurp
-                        read-string
-                        :internal-kafka-settings)]
-    settings
-    {:crux.kafka/bootstrap-servers "localhost:9092"
-     :crux.kafka/tx-topic (str "dataworks-internal."
-                               "crux-transaction-log")
-     :crux.kafka/doc-topic "dataworks-internal.crux-docs"
-     :crux.kv/db-dir "internal-data"}))
+  (merge
+   {:crux.kafka/bootstrap-servers "localhost:9092"
+    :crux.kafka/tx-topic (str "dataworks-internal."
+                              "crux-transaction-log")
+    :crux.kafka/doc-topic "dataworks-internal.crux-docs"
+    :crux.kv/db-dir "internal-data"}
+   (try
+     (-> "config.edn"
+         slurp
+         read-string
+         :internal-kafka-settings)
+     (catch Exception _ {}))))
 
 (defstate app-db
   :start
-  (crux/start-node
-   (merge
-    {:crux.node/topology '[crux.kafka/topology
-                           crux.kv.rocksdb/kv-store]}
-    internal-kafka-settings)) ;;rocksdb can't be used twice
+  (let [db (crux/start-node
+            (merge
+             {:crux.node/topology '[crux.kafka/topology
+                                    crux.kv.rocksdb/kv-store]}
+             internal-kafka-settings))]
+    (println "synchronizing app-db")
+    (crux/sync db (tick.alpha.api/new-duration 3 :seconds))
+    db)
   :stop
   (.close app-db))
 
@@ -72,12 +77,11 @@
                           function-type]]}))))
 
 (defn function-already-exists?
-  [{:keys [name] :as params} function-type]
-  (println "checking for duplicate" name)
-  (if (get-stored-function name function-type)
+  [{:crux.db/keys [id] :stored-function/keys [type] :as params}]
+  (println "checking for duplicate" id)
+  (if (get-stored-function id)
     {:status :failure
-     :message (generate-message function-type
-                                "%-already-exists")}
+     :message (generate-message type "%-already-exists")}
     params))
 
 (defn add-current-stored-function
@@ -87,35 +91,49 @@
    current stored function. Useful for threading through
    functions which require both the new stored function
    and the current stored function for comparison."
-  [{:keys [name] :as params} function-type]
-  (println "Adding current" function-type ":" name ".")
-  (if-let [current (get-stored-function
-                    name function-type)]
-    [params (get-stored-function name function-type)]
+  [{:crux.db/keys [id] :as params}]
+  (if-let [current (get-stored-function id)]
+    (assoc params :current/function current)
     {:status :failure
      :message :stored-function-does-not-exist
-     :details (str "The " (stringify-keyword function-type)
-                   ": " name " doesn't exist yet. "
+     :details (str id " doesn't exist yet. "
                    "You have to create it before you "
                    "can update it.")}))
 
 (defn added-to-db?
-  [params]
+  [{:current/keys [function]
+    :stored-function/keys [type]
+    :as params}]
   (println "adding-to-db")
-  (let [db-fn (first params)
-        success [db-fn (last params)]]
+  (let [db-fn (select-ns-keys params type :stored-function :crux.db)]
     (try
-      (let [tx (cond (> 3  (count params))
-                     [:crux.tx/put db-fn]
-                     :else
-                     [:crux.tx/cas
-                      (second params)
-                      db-fn])]
+      (let [tx (if function
+                 [:crux.tx/put db-fn]
+                 [:crux.tx/cas function db-fn])]
         (crux/await-tx app-db
-         (crux/submit-tx app-db [tx])
-         #time/duration "PT30S"))
-      success
+                       (crux/submit-tx app-db [tx])
+                       #time/duration "PT30S"))
+      params
       (catch Exception e
         {:status :failure
          :message :db-failed-to-update
          :details (.getMessage e)}))))
+
+;;(defn get-dependencies
+;;  "Get a dependency graph for a function. (not used by app anymore)"
+;;  [function]
+;;  (query {:find '[d1 d2]
+;;          :where '[(depends d1 d0)
+;;                   [d1 :stored-function/dependencies d2]]
+;;          :args [{'d0 function}]
+;;          :rules '[[(depends d1 d2)
+;;                    [d1 :stored-function/dependencies d2]]
+;;                   [(depends d1 d2)
+;;                    [d1 :stored-function/dependencies x]
+;;                    (depends x d2)]]}))
+;;
+;;(defn get-all-dependencies
+;;  "Get the dependency graph for all functions. not used by app anymore."
+;;  []
+;;  (query {:find '[d1 d2]
+;;          :where '[[d1 :stored-function/dependencies d2]]}))

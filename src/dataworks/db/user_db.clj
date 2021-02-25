@@ -1,28 +1,34 @@
 (ns dataworks.db.user-db
   (:require
    [clojure.java.io :as io]
-   [dataworks.common :refer [read-string]]
+   [dataworks.utils.common :refer [read-string]]
    [crux.api :as crux]
    [mount.core :refer [defstate]]
    [tick.alpha.api :as time]))
 
 (def kafka-settings
-  (if-let [settings   (-> "config.edn"
-      slurp
-      read-string
-      :kafka-settings)]
-    settings
-    {:crux.kafka/bootstrap-servers "localhost:9092"
-     :crux.kafka/tx-topic "dataworks.crux-transaction-log"
-     :crux.kafka/doc-topic "dataworks.crux-docs"}))
+  (merge
+   {:crux.kafka/bootstrap-servers "localhost:9092"
+    :crux.kafka/tx-topic "dataworks.crux-transaction-log"
+    :crux.kafka/doc-topic "dataworks.crux-docs"}
+   (try
+     (-> "config.edn"
+         slurp
+         read-string
+         :kafka-settings)
+     (catch Exception _ {}))))
 
 (defstate user-db
   :start
-  (crux/start-node
-   (merge
-    {:crux.node/topology '[crux.kafka/topology
-                           crux.kv.rocksdb/kv-store]}
-    kafka-settings))
+  (let [db (crux/start-node
+            (merge
+             {:crux.node/topology '[crux.kafka/topology
+                                    crux.kv.rocksdb/kv-store]}
+             kafka-settings))]
+    (println "synchronizing user-db")
+    (crux/sync db (time/new-duration 3 :seconds))
+    db)
+
   :stop
   (.close user-db))
 

@@ -14,19 +14,27 @@
    [yada.yada :as yada]))
 
 (def secret
-  (-> "config.edn"
-      slurp
-      edn/read-string
-      :jwt-secret))
+  (try
+    (-> "config.edn"
+        slurp
+        edn/read-string
+        :jwt-secret)
+    (catch Exception _
+      (do
+        (println "No :jwt-secret in config.edn.")
+        (println "Using dev jwt-secret.")
+        "(def secret-to-development
+           (str \"the secret to development is\"
+                secret-to-development))"))))
 
 (defn create-token [{:user/keys [user-name roles]}]
   {:token
-    (jwt/sign
-     {:claims (pr-str {:user user-name :roles roles})
-      :timeout (str (tick/+
-                     (tick/date-time)
-                     (tick/new-period 30 :days)))}
-     secret)})
+   (jwt/sign
+    {:claims (pr-str {:user user-name :roles roles})
+     :timeout (str (tick/+
+                    (tick/date-time)
+                    (tick/new-period 30 :days)))}
+    secret)})
 
 (defn token-verify [yada-syntax-map]
   (let [token (:yada.syntax/value yada-syntax-map)
@@ -34,14 +42,13 @@
         timeout (:timeout tkn)
         claims (edn/read-string (:claims tkn))]
     (when (tick/<= (tick/date-time) (tick/date-time timeout))
-          claims)))
+      claims)))
 
 (defn authenticate [ctx token scheme]
   (token-verify token))
 
-(defn get-roles [authorization]
-  (let [roles (:custom/roles authorization)
-        namespaces (into #{} (map namespace roles))
+(defn get-roles [roles]
+  (let [namespaces (into #{} (map namespace roles))
         add-role (fn [roles nsp role]
                    (if (contains? namespaces nsp)
                      (conj roles role)
@@ -51,11 +58,14 @@
         (add-role "developer" :developer/all)
         (add-role "admin" :admin/all))))
 
-(defn authorize [ctx authenticate authorization]
-  (let [claim-roles (:roles authenticate)
-        auth-roles (get-roles authorization)
-        roles (st/intersection claim-roles auth-roles)]
-    (if (empty? roles) nil roles)))
+(defn authorize
+  [& roles]
+  (fn
+    [ctx authenticate authorization]
+    (let [claim-roles (:roles authenticate)
+          auth-roles (get-roles (into #{} roles))
+          roles (st/intersection claim-roles auth-roles)]
+      (if (empty? roles) nil roles))))
 
 (def dev-authentication
   {:realm "Developer"
@@ -64,21 +74,19 @@
 
 (def dev-authorization
   ;; Eventually Hierarchical role auth should be a thing
-  {:authorize authorize
-   :custom/roles #{:developer/all}})
+  {:authorize (authorize :developer/all)})
 
 (defn get-user [user]
   (entity (keyword "user" user)))
 
-
 (defn add-user [{:keys [user pass email roles display-name]}]
   (submit-tx [[:crux.tx/put
-                    {:crux.db/id (keyword "user" user)
-                     :user/user-name user
-                     :user/display-name display-name
-                     :user/email email
-                     :user/roles roles
-                     :user/pass (hash/derive pass)}]])
+               {:crux.db/id (keyword "user" user)
+                :user/user-name user
+                :user/display-name display-name
+                :user/email email
+                :user/roles roles
+                :user/pass (hash/derive pass)}]])
   (dissoc (get-user user)
           :user/pass))
 
@@ -104,10 +112,10 @@
 (defn new-user [{:keys [user] :as params}]
   (if (empty?
        (query
-               '{:find [e]
-                 :where [[e :crux.db/id e]
-                         [(clojure.string/starts-with?
-                           e ":user/")]]}))
+        '{:find [e]
+          :where [[e :crux.db/id e]
+                  [(clojure.string/starts-with?
+                    e ":user/")]]}))
     (add-user (assoc params :roles #{:admin/all
                                      :developer/all
                                      :user/all}))
@@ -135,8 +143,7 @@
     :authentication {:realm "Admin"
                      :scheme "Bearer"
                      :authenticate authenticate}
-    :authorization {:authorize authorize
-                    :custom/roles #{:admin/all}}
+    :authorization {:authorize (authorize :admin/all)}
     :path-info? true
     :methods {:get
               {:produces "application/json"
