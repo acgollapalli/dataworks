@@ -255,8 +255,8 @@
   (case (keyword fn-type)
     :collector (dataworks.collector/create-collector! f)
     :stream (dataworks.stream/create-stream! f)
-    :transformer (dataworks.transformer/create-transformer!)
-    :transactor (dataworks.transactor/create-transactor!)))
+    :transformer (dataworks.transformer/create-transformer! f)
+    :transactor (dataworks.transactor/create-transactor! f)))
 
 (defn test-update-fn
   [fn-type f]
