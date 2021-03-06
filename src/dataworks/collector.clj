@@ -3,12 +3,10 @@
    [clojure.core.async :refer [close!
                                chan
                                tap]]
-   [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
    [dataworks.app-graph :refer [node-state
                                 stream!]]
    [dataworks.utils.stream :as stream]
-   [dataworks.authentication :as auth]
    [dataworks.db.app-db :refer [app-db
                                 entity
                                 get-stored-function
@@ -89,7 +87,6 @@
   [{:collector/keys [name resource] :as collector}]
   (binding [*ns* collector-ns]
     (println "Evalidating:" name)
-    (clojure.pprint/pprint (eval resource))
     (try (assoc collector
                 :eval/resource
                 (yada/resource (eval resource)))

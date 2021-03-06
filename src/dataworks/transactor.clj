@@ -4,7 +4,6 @@
                                close!
                                chan
                                tap] :as async]
-   [clojure.pprint :refer [pprint]]
    [dataworks.utils.stream :as stream]
    [dataworks.app-graph :refer [stream!
                                 node-state]]
@@ -14,7 +13,7 @@
                                 function-already-exists?
                                 added-to-db?
                                 entity]]
-   [dataworks.authentication :as auth]
+   [dataworks.utils.auth :as auth]
    [dataworks.utils.common :refer :all]
    [dataworks.utils.time :refer :all]
    [dataworks.transactors :refer [transactor-ns

@@ -73,7 +73,6 @@
 (defn start-transformers! []
   (do (println "Starting Transformers!")
       (let [trs (get-stored-functions :transformer)
-            do-this (clojure.pprint/pprint trs)
             status (map add-transformer! trs)]
         (if (every? #(= (:status %) :success) status)
           (println "Transformers Started!")
@@ -90,7 +89,6 @@
                  (keyword :transformer)))
             (map  ;; TODO add error handling.
              (fn [{:crux.db/keys [id]}]
-               (clojure.pprint/pprint (entity id))
                (add-transformer! (entity id))))))]
     (stream/take-while c)
     (tap (get-in

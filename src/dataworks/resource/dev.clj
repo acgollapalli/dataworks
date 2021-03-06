@@ -1,9 +1,9 @@
-(ns dataworks.resource
+(ns dataworks.resource.dev
   (:require
-   [bidi.bidi :as bidi]
-   [clojure.pprint :refer [pprint] :as p]
    [dataworks.utils.common :refer :all]
-   [dataworks.authentication :as auth]
+   [clojure.edn :as edn]
+   [dataworks.auth.dev :as auth]
+   [dataworks.utils.auth :as auth-utils]
    [dataworks.db.app-db :refer [get-stored-function
                                 get-stored-functions]]
    [dataworks.collector :refer [create-collector!
@@ -41,7 +41,7 @@
     :description (str "resource for new or all"
                       (stringify-keyword function-type) "s")
     :authentication auth/dev-authentication
-    :authorization auth/dev-authorization
+    :authorization (auth/make-authorize-by-fn function-type)
     :methods {:get
               {:produces "application/edn"
                :response (fn [ctx]
@@ -63,8 +63,8 @@
    {:id (get-entity-param function-type "update")
     :description (str "resource for existing individual "
                       (stringify-keyword function-type) "s")
-    :authentication auth/dev-authentication ;; TODO add hierarchical
-    :authorization auth/dev-authorization   ;;      role authorization
+    :authentication auth/dev-authentication
+    :authorization (auth/make-authorize-by-fn function-type)
     :path-info? true
     :methods {:get
               {:produces "application/edn"
@@ -84,29 +84,29 @@
                      (update! function-type name body)
                      406)))}}}))
 
-(defn match-route
-  [path-info]
-  (bidi/match-route ["" @atomic-routes] path-info))
+(def port
+  (try
+    (-> "config.edn"
+        slurp
+        edn/read-string
+        :dev/port)
+    (catch Exception _ nil)))
 
-(def user-sub
-  (fn [ctx]
-    (let [path-info (get-in ctx [:request :path-info])]
-      (if-let [path (match-route path-info)]
-        (@resource-map (:handler path))
-        (as-resource nil)))))
-
-(defn path-param-interceptor
-  ([{:keys [request] :as ctx}]
-   (assoc-in ctx
-             [:parameters :path]
-             (:route-params (match-route (:path-info request))))))
-
-(def user-resource
-  (yada.handler/append-interceptor
-   (yada.yada/handler
-    (resource
-     {:id :user
-      :path-info? true
-      :sub-resource user-sub}))
-   yada.swagger-parameters/parse-parameters
-   path-param-interceptor))
+(def routes
+    (if (and auth/secret port)
+      ["/"
+       [["api/"
+         {"collector" (creation-resource :collector)
+          "collector/" (update-resource :collector)
+          "transactor" (creation-resource :transactor)
+          "transactor/" (update-resource :transactor)
+          "transformer" (creation-resource :transformer)
+          "transformer/" (update-resource :transformer)
+          "stream" (creation-resource :stream)
+          "stream/" (update-resource :stream)
+          "register" auth/register
+          "login" auth/login
+          "admin/user-roles/" auth/admin}]
+        [true (as-resource nil)]]]
+      (println "Must specify both :dev/jwt-secret"
+               "and :dev/port to start dev server.")))

@@ -67,7 +67,8 @@
            {:jwt-secret "(def secret
                    (str \"the secret to development is: \" 
                         secret))"
-            :port 3000
+            :dev-port 3000
+            :user-port 8080
             :embedded-kafka :true
             :default-topic-settings {:number-of-partitions 1
                                      :replication-factor 1}})))
@@ -251,7 +252,6 @@
 (defn test-create-fn
   [fn-type f]
   (println "create")
-  (println f)
   (case (keyword fn-type)
     :collector (dataworks.collector/create-collector! f)
     :stream (dataworks.stream/create-stream! f)
@@ -261,7 +261,6 @@
 (defn test-update-fn
   [fn-type f]
   (println "update")
-  (println f)
   (let [fn-name (stringify-keyword (:name f))]
     (case (keyword fn-type)
       :collector (dataworks.collector/update-collector! fn-name f)

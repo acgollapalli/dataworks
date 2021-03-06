@@ -4,8 +4,7 @@
    [camel-snake-kebab.extras :as case.extras]
    [clojure.pprint :refer [pprint]]
    [crux.api :as crux]
-   [dataworks.authentication :refer [authenticate
-                                     authorize]]
+   [dataworks.utils.auth :as auth]
    [dataworks.utils.common :refer :all]
    [dataworks.db.user-db :refer [user-db
                                  submit-tx
