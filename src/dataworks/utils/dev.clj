@@ -64,11 +64,14 @@
                  (catch Exception _ nil))
     (spit "config.edn"
           (pr-str
-           {:jwt-secret "(def secret
+           {:dev/jwt-secret "(def secret
                    (str \"the secret to development is: \" 
-                        secret))"
-            :dev-port 3000
-            :user-port 8080
+                        a secret))"
+            :dev/port 3000
+            :user/jwt-secret "(def secret
+                   (str \"the secret to users is: \"
+                        a secret))"
+            :user/port 8080
             :embedded-kafka :true
             :default-topic-settings {:number-of-partitions 1
                                      :replication-factor 1}})))
@@ -180,15 +183,21 @@
          (if-quote :error-handler error-handler)
          stream-helper))))
 
-(defn exists?
+(defn try-exists
   ([fn-type {:keys [name]}]
-  (try (client/get
+   (fn []
+     (try (client/get
         (str
          @url "app/"
          (stringify-keyword fn-type) "/"
          (stringify-keyword name))
-        {:oauth-token @token})
-       (catch Exception _ nil))))
+        {:oauth-token @token
+         :as :edn})
+       (catch Exception _ nil)))))
+
+(defn exists?
+  [fn-type cmd-map]
+  (first (filter some? (repeatedly 3 (try-exists fn-type cmd-map)))))
 
 (defn update-fn
   [fn-type f]
@@ -216,14 +225,14 @@
 (defn send-fn
   ([f]
    (send-fn (namespace f) (name f)))
-  ([fn-type f]
+  ([fn-type fn-name]
    (let [f (get
             (case (keyword fn-type)
               :collector @collectors
               :stream @streams
               :transformer @transformers
               :transactor @transactors)
-            (keyword f))]
+            (keyword fn-name))]
      (try (if (exists? fn-type f)
             (update-fn fn-type f)
             (create-fn fn-type f))
@@ -272,7 +281,7 @@
   ([f]
    (test-fn (namespace f) (name f)))
   ([fn-type f]
-   (when (map? dataworks.core/svr)
+   (when (map? dataworks.core/dev-server)
      (let [f (get
               (case (keyword fn-type)
                 :collector @collectors
