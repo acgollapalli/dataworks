@@ -53,19 +53,13 @@
                  (catch Exception _ {}))]
       (if (map? m) m {})))))
 
-(defn go
-  "starts a local dataworks node.
-  If there is no config file, then it creates one suitable for
-  development, (but ONLY for development). If no kafka info is
-  specified, it starts an embedded kafka, again for development
-  purposes."
+(defn dev-config
+  "Creates a generic dev config. DO NOT USE THIS CONFIG IN PRODUCTION."
   []
-  (when-not (try (slurp "config.edn")
-                 (catch Exception _ nil))
-    (spit "config.edn"
+  (spit "config.edn"
           (pr-str
            {:dev/jwt-secret "(def secret
-                   (str \"the secret to development is: \" 
+                   (str \"the secret to development is: \"
                         a secret))"
             :dev/port 3000
             :user/jwt-secret "(def secret
@@ -75,6 +69,17 @@
             :embedded-kafka :true
             :default-topic-settings {:number-of-partitions 1
                                      :replication-factor 1}})))
+
+(defn go
+  "starts a local dataworks node.
+  If there is no config file, then it creates one suitable for
+  development, (but ONLY for development). If no kafka info is
+  specified, it starts an embedded kafka, again for development
+  purposes."
+  []
+  (when-not (try (slurp "config.edn")
+                 (catch Exception _ nil))
+    (dev-config))
   (let [config (-> "config.edn" slurp read-string)]
     (when (not= :false (:embedded-kafka config))
       (when (or (nil? (:internal-kafka-settings config))

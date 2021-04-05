@@ -4,7 +4,8 @@
    [clojure.edn :as edn]
    [yada.yada :refer [resource as-resource]]
    [dataworks.collectors :refer [atomic-routes resource-map]]
-   [dataworks.auth.user :as auth]))
+   [dataworks.auth.user :as auth]
+   [mount.core :refer [defstate]]))
 
 (defn match-route
   [path-info]
@@ -33,7 +34,8 @@
    yada.swagger-parameters/parse-parameters
    path-param-interceptor))
 
-(def port
+(defstate port
+  :start
   (try
     (-> "config.edn"
         slurp
@@ -41,7 +43,8 @@
         :user/port)
     (catch Exception _ nil)))
 
-(def routes
+(defstate routes
+  :start
   (if (and auth/secret port)
     ["/"
      {"api/" user-resource

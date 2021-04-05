@@ -12,22 +12,21 @@
    [crux.kafka.edn EdnSerializer EdnDeserializer]
    [crux.kafka.json JsonSerializer JsonDeserializer]))
 
-(def kafka-settings
+(defstate kafka-settings
+  :start
   (merge
    {"bootstrap.servers" "localhost:9092"}
    (try
-     (-> "config.edn"
-         slurp
-         read-string
-         :kafka-settings
-         :crux.kafka/kafka-properties-map)
-     (catch Exception _
-       {}))))
+    (-> "config.edn"
+        slurp
+        read-string
+        :user/kafka-properties-map)
+    (catch Exception _ nil))))
 
 (defn new-topic-object
   [[topic {:keys [number-of-partitions
                   replication-factor]}]]
-  (NewTopic. topic number-of-partitions replication-factor))
+  (NewTopic. topic number-of-partitions (short replication-factor)))
 
 (defn topics-to-create
   [admin-client required-topics]

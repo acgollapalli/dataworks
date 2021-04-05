@@ -16,7 +16,8 @@
                                  update-transactor!]]
    [dataworks.transformer :refer [create-transformer!
                                   update-transformer!]]
-   [yada.yada :refer [resource as-resource]]))
+   [yada.yada :refer [resource as-resource]]
+   [mount.core :refer [defstate]]))
 
 (defn create! [function-type body]
   ((function-type
@@ -92,21 +93,22 @@
         :dev/port)
     (catch Exception _ nil)))
 
-(def routes
-    (if (and auth/secret port)
-      ["/"
-       [["api/"
-         {"collector" (creation-resource :collector)
-          "collector/" (update-resource :collector)
-          "transactor" (creation-resource :transactor)
-          "transactor/" (update-resource :transactor)
-          "transformer" (creation-resource :transformer)
-          "transformer/" (update-resource :transformer)
-          "stream" (creation-resource :stream)
-          "stream/" (update-resource :stream)
-          "register" auth/register
-          "login" auth/login
-          "admin/user-roles/" auth/admin}]
-        [true (as-resource nil)]]]
-      (println "Must specify both :dev/jwt-secret"
-               "and :dev/port to start dev server.")))
+(defstate routes
+  :start
+  (if (and auth/secret port)
+    ["/"
+     [["api/"
+       {"collector" (creation-resource :collector)
+        "collector/" (update-resource :collector)
+        "transactor" (creation-resource :transactor)
+        "transactor/" (update-resource :transactor)
+        "transformer" (creation-resource :transformer)
+        "transformer/" (update-resource :transformer)
+        "stream" (creation-resource :stream)
+        "stream/" (update-resource :stream)
+        "register" auth/register
+        "login" auth/login
+        "admin/user-roles/" auth/admin}]
+      [true (as-resource nil)]]]
+    (println "Must specify both :dev/jwt-secret"
+             "and :dev/port to start dev server.")))

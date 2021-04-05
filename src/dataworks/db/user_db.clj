@@ -6,25 +6,18 @@
    [mount.core :refer [defstate]]
    [tick.alpha.api :as time]))
 
-(def kafka-settings
-  (merge
-   {:crux.kafka/bootstrap-servers "localhost:9092"
-    :crux.kafka/tx-topic "dataworks.crux-transaction-log"
-    :crux.kafka/doc-topic "dataworks.crux-docs"}
+(defstate kafka-settings
+  :start
    (try
      (-> "config.edn"
          slurp
          read-string
          :kafka-settings)
-     (catch Exception _ {}))))
+     (catch Exception _ {})))
 
 (defstate user-db
   :start
-  (let [db (crux/start-node
-            (merge
-             {:crux.node/topology '[crux.kafka/topology
-                                    crux.kv.rocksdb/kv-store]}
-             kafka-settings))]
+  (let [db (crux/start-node kafka-settings)]
     (println "synchronizing user-db")
     (crux/sync db (time/new-duration 3 :seconds))
     db)

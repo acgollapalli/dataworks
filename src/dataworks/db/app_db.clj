@@ -6,27 +6,19 @@
    [tick.alpha.api :as tick]
    [mount.core :refer [defstate]]))
 
-(def internal-kafka-settings
-  (merge
-   {:crux.kafka/bootstrap-servers "localhost:9092"
-    :crux.kafka/tx-topic (str "dataworks-internal."
-                              "crux-transaction-log")
-    :crux.kafka/doc-topic "dataworks-internal.crux-docs"
-    :crux.kv/db-dir "internal-data"}
+(defstate internal-kafka-settings
+  :start
    (try
      (-> "config.edn"
          slurp
          read-string
-         :internal-kafka-settings)
-     (catch Exception _ {}))))
+         :dev/kafka-config
+         (if identity {}))
+     (catch Exception _ {})))
 
 (defstate app-db
   :start
-  (let [db (crux/start-node
-            (merge
-             {:crux.node/topology '[crux.kafka/topology
-                                    crux.kv.rocksdb/kv-store]}
-             internal-kafka-settings))]
+  (let [db (crux/start-node internal-kafka-settings)]
     (println "synchronizing app-db")
     (crux/sync db (tick.alpha.api/new-duration 3 :seconds))
     db)
@@ -108,10 +100,11 @@
   (let [db-fn (select-ns-keys params type :stored-function :crux.db)]
     (try
       (let [tx (if function
-                 [:crux.tx/put db-fn]
-                 [:crux.tx/cas function db-fn])]
+                 [[:crux.tx/put db-fn]]
+                 [[:crux.tx/match db-fn]
+                  [:crux.tx/put db-fn]])]
         (crux/await-tx app-db
-                       (crux/submit-tx app-db [tx])
+                       (crux/submit-tx app-db tx)
                        #time/duration "PT30S"))
       params
       (catch Exception e

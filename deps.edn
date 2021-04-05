@@ -8,9 +8,9 @@
         mount {:mvn/version "0.1.16"}
         tick {:mvn/version "0.4.30-alpha"}
         buddy/buddy-hashers {:mvn/version "1.4.0"}
-        juxt/crux-core {:mvn/version "20.08-1.10.1-beta"}
-        juxt/crux-kafka {:mvn/version "20.08-1.10.1-beta"}
-        juxt/crux-rocksdb {:mvn/version "20.08-1.10.1-beta"}
-        juxt/crux-kafka-embedded {:mvn/version "20.08-1.10.1-beta"}
+        juxt/crux-core {:mvn/version "21.04-1.16.0-beta"}
+        juxt/crux-kafka {:mvn/version "21.04-1.16.0-beta"}
+        juxt/crux-rocksdb {:mvn/version "21.04-1.16.0-beta"}
+        juxt/crux-kafka-embedded {:mvn/version "21.04-1.16.0-beta"}
         io.dropwizard.metrics/metrics-core {:mvn/version "3.2.5"}
         camel-snake-kebab {:mvn/version "0.4.2"}}}
