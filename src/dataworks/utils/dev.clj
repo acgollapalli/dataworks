@@ -29,10 +29,24 @@
                         "config.edn"
                         slurp
                         read-string
-                        :port
+                        :dev/port
                         url-ize))
                      (catch Exception _ nil))]
           "http://localhost:3000/"))) ;; configure me!
+
+(def user-url
+  (atom (if-let [a (try
+                     (let [url-ize
+                           #(str "http://localhost:" % "/")]
+                       (some->
+                        "config.edn"
+                        slurp
+                        read-string
+                        :user/port
+                        url-ize))
+                     (catch Exception _ nil))]
+          "http://localhost:3000/"))) ;; configure me!
+
 
 (def token
   (atom "If you're reading this, you forgot to call set-token."))
@@ -78,19 +92,19 @@
   purposes."
   []
   (when-not (try (slurp "config.edn")
-                 (catch Exception _ nil))
-    (dev-config))
+                 (catch Exception _
+                   (println "Call dev-config to generate a development configuration.")))
   (let [config (-> "config.edn" slurp read-string)]
     (when (not= :false (:embedded-kafka config))
       (when (or (nil? (:internal-kafka-settings config))
                 (:embedded-kafka config))
         (embedded-kafka))))
-  (dataworks/-main))
+  (dataworks/-main)))
 
 (defn get-token
   [user pass]
   (client/post
-   (str @url "app/login")
+   (str @url "api/login")
    {:form-params {:user user
                   :pass pass}
     :content-type :json
@@ -193,7 +207,7 @@
    (fn []
      (try (client/get
         (str
-         @url "app/"
+         @url "api/"
          (stringify-keyword fn-type) "/"
          (stringify-keyword name))
         {:oauth-token @token
@@ -208,7 +222,7 @@
   [fn-type f]
   (println "updating:" f)
   (client/post
-   (str @url "app/"
+   (str @url "api/"
         (stringify-keyword fn-type) "/"
         (stringify-keyword (:name f)))
    {:form-params f
@@ -220,7 +234,7 @@
   [fn-type f]
   (println "creating:" f)
   (client/post
-   (str @url "app/"
+   (str @url "api/"
         (stringify-keyword fn-type))
    {:form-params f
     :oauth-token @token
