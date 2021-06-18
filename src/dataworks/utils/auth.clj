@@ -48,13 +48,13 @@
   [& roles]
   {:authorize
    (fn [ctx authenticate authorization]
-     (let [claim-roles (:roles authenticate)
+     (let [claim-roles (->> authenticate vec (into {}) :roles (map keyword) set)
            auth-roles (get-roles (into #{} roles))
            roles (st/intersection claim-roles auth-roles)]
        (if (empty? roles) nil roles)))})
 
 (defn get-user [db user]
-  (crux/entity db (keyword "user" user)))
+  (crux/entity (crux/db db) (keyword "user" user)))
 
 (defn add-user [db {:keys [user pass email roles display-name]}]
   (crux/submit-tx db
@@ -89,7 +89,7 @@
 
 (defn new-user [db {:keys [user] :as params}]
   (if (empty?
-       (crux/q db
+       (crux/q (crux/db db)
         '{:find [e]
           :where [[e :crux.db/id e]
                   [(clojure.string/starts-with?
