@@ -14,11 +14,14 @@
         :user/jwt-secret)
     (catch Exception _ nil)))
 
-(def login
+(defn login
+  []
   (login-resource user-db secret))
 
-(def register
+(defn register
+  []
   (register-resource user-db))
 
-(def admin
+(defn admin
+  []
   (admin-resource user-db secret))

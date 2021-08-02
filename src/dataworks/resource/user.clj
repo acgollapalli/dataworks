@@ -48,9 +48,9 @@
   (if (and auth/secret port)
     ["/"
      {"api/" user-resource
-      "register" auth/register
-      "login"  auth/login
-      "admin/user-roles/" auth/admin
+      "register" (auth/register)
+      "login"  (auth/login)
+      "admin/user-roles/" (auth/admin)
       true (as-resource nil)}]
     (println "Must specify both :user/jwt-secret"
              "and :user/port to start user server.")))

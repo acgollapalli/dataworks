@@ -106,9 +106,9 @@
         "transformer/" (update-resource :transformer)
         "stream" (creation-resource :stream)
         "stream/" (update-resource :stream)
-        "register" auth/register
-        "login" auth/login
-        "admin/user-roles/" auth/admin}]
+        "register" (auth/register)
+        "login" (auth/login)
+        "admin/user-roles/" (auth/admin)}]
       [true (as-resource nil)]]]
     (println "Must specify both :dev/jwt-secret"
              "and :dev/port to start dev server.")))

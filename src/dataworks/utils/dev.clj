@@ -91,15 +91,16 @@
   specified, it starts an embedded kafka, again for development
   purposes."
   []
-  (when-not (try (slurp "config.edn")
+  (when (try (slurp "config.edn")
                  (catch Exception _
                    (println "Call dev-config to generate a development configuration.")))
-  (let [config (-> "config.edn" slurp read-string)]
-    (when (not= :false (:embedded-kafka config))
+    (let [config (-> "config.edn" slurp read-string)]
       (when (or (nil? (:internal-kafka-settings config))
-                (:embedded-kafka config))
-        (embedded-kafka))))
-  (dataworks/-main)))
+                (:embedded-kafka config)
+                (not= :false (:embedded-kafka config)))
+        (embedded-kafka)
+        (println "Embedded Kafka Started. DEVELOPMENT PURPOSES ONLY."))))
+  (dataworks/-main))
 
 (defn get-token
   [user pass]

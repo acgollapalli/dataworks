@@ -20,11 +20,14 @@
   [function-type]
   (make-authorize (get-entity-param :developer function-type)))
 
-(def login
+(defn login
+  []
   (login-resource app-db secret))
 
-(def register
+(defn register
+  []
   (register-resource app-db))
 
-(def admin
+(defn admin
+  []
   (admin-resource app-db secret))
